@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Iran War: Global Economic Impact Dashboard | chart.delaxcom.com</title>
+<meta name="description" content="Investor-grade 10-year geopolitical economic impact forecast for the 2026 Iran War.">
+
+<!-- ECharts -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg-deep:    #080c14;
+  --bg-card:    #0d1525;
+  --bg-panel:   #111d33;
+  --border:     #1e3055;
+  --border-dim: #152238;
+  --amber:      #f5a623;
+  --amber-dim:  #c47e10;
+  --cyan:       #00d4ff;
+  --cyan-dim:   #0099cc;
+  --green:      #00e676;
+  --red:        #ff3d4a;
+  --yellow:     #ffe040;
+  --purple:     #b388ff;
+  --text-pri:   #e8edf5;
+  --text-sec:   #7a91b3;
+  --text-dim:   #3d5270;
+  --mono:       'IBM Plex Mono', monospace;
+  --sans:       'IBM Plex Sans', sans-serif;
+  --display:    'Bebas Neue', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-pri);
+  font-family: var(--sans);
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* GRID NOISE BACKGROUND */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HEADER */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(8,12,20,0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  gap: 1rem;
+}
+
+.header-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.header-brand .logo {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  line-height: 1;
+}
+
+.header-brand .subtitle {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-sec);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--green);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+  50%       { opacity: 0.4; box-shadow: 0 0 3px var(--green); }
+}
+
+.timestamp {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-sec);
+}
+
+.refresh-btn {
+  background: transparent;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.45rem 1rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.refresh-btn:hover {
+  background: var(--amber);
+  color: #000;
+  box-shadow: 0 0 20px rgba(245,166,35,0.4);
+}
+.refresh-btn.spinning {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* MAIN LAYOUT */
+main {
+  position: relative;
+  z-index: 1;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 4rem;
+}
+
+/* ALERT BANNER */
+.alert-banner {
+  background: linear-gradient(90deg, rgba(255,61,74,0.12), rgba(255,61,74,0.04));
+  border: 1px solid rgba(255,61,74,0.35);
+  border-left: 3px solid var(--red);
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-sec);
+}
+.alert-label {
+  color: var(--red);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.alert-text { flex: 1; }
+.alert-text strong { color: var(--text-pri); }
+
+/* SECTION TITLE */
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.section-label::before {
+  content: '';
+  display: inline-block;
+  width: 20px; height: 1px;
+  background: var(--amber);
+}
+
+/* KPI CARDS */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px;
+  background: var(--border-dim);
+  border: 1px solid var(--border-dim);
+  margin-bottom: 1.5rem;
+}
+
+.kpi-card {
+  background: var(--bg-card);
+  padding: 1.25rem 1.5rem;
+  transition: background 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.kpi-card.up::after   { background: linear-gradient(90deg, var(--red), transparent); }
+.kpi-card.down::after { background: linear-gradient(90deg, var(--green), transparent); }
+.kpi-card.warn::after { background: linear-gradient(90deg, var(--amber), transparent); }
+.kpi-card.info::after { background: linear-gradient(90deg, var(--cyan), transparent); }
+
+.kpi-card:hover { background: var(--bg-panel); }
+
+.kpi-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-sec);
+  margin-bottom: 0.5rem;
+}
+.kpi-value {
+  font-family: var(--display);
+  font-size: 2.2rem;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.35rem;
+}
+.kpi-card.up   .kpi-value { color: var(--red); }
+.kpi-card.down .kpi-value { color: var(--green); }
+.kpi-card.warn .kpi-value { color: var(--amber); }
+.kpi-card.info .kpi-value { color: var(--cyan); }
+
+.kpi-delta {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-sec);
+}
+.kpi-delta span { color: var(--text-pri); }
+
+/* TABS */
+.tabs-wrapper {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-sec);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text-pri); }
+.tab-btn.active {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* CONTROLS ROW */
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.toggle-btn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-sec);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.85rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.toggle-btn.active-baseline  { background: rgba(0,212,255,0.15); border-color: var(--cyan); color: var(--cyan); }
+.toggle-btn.active-optimistic { background: rgba(0,230,118,0.12); border-color: var(--green); color: var(--green); }
+.toggle-btn.active-pessimistic { background: rgba(255,61,74,0.12); border-color: var(--red); color: var(--red); }
+.toggle-btn:hover { border-color: var(--text-sec); color: var(--text-pri); }
+
+.select-ctrl {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-pri);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.select-ctrl:focus { border-color: var(--amber); }
+
+/* CHART CONTAINERS */
+.chart-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.chart-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-title {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: var(--text-pri);
+}
+
+.chart-desc {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-body {
+  padding: 0.75rem 0.5rem 0.5rem;
+}
+
+.echart { width: 100%; }
+
+/* TWO-COL GRID */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+@media (max-width: 900px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+/* MATRIX TABLE */
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+.matrix-table th {
+  background: var(--bg-deep);
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 0.65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.matrix-table td {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-pri);
+  vertical-align: middle;
+}
+.matrix-table tr:hover td { background: var(--bg-panel); }
+.matrix-table tr:last-child td { border-bottom: none; }
+
+/* SIGNAL BADGES */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.badge-buy    { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid rgba(0,230,118,0.4); }
+.badge-avoid  { background: rgba(255,61,74,0.15);  color: var(--red);   border: 1px solid rgba(255,61,74,0.4); }
+.badge-monitor{ background: rgba(255,224,64,0.12); color: var(--yellow);border: 1px solid rgba(255,224,64,0.3); }
+.badge-neutral{ background: rgba(122,145,179,0.1); color: var(--text-sec); border: 1px solid var(--border); }
+
+/* IMPACT BAR */
+.impact-bar { width: 100%; display: flex; align-items: center; gap: 0.5rem; }
+.impact-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border-dim);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.impact-bar-fill { height: 100%; border-radius: 2px; }
+.impact-pos { background: linear-gradient(90deg, var(--green), rgba(0,230,118,0.4)); }
+.impact-neg { background: linear-gradient(90deg, var(--red), rgba(255,61,74,0.4)); }
+.impact-val {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  min-width: 3.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* RISK GAUGE */
+.risk-section {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.5rem;
+  align-items: center;
+}
+.risk-arc { position: relative; }
+.risk-label-center {
+  position: absolute;
+  top: 58%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-family: var(--display);
+  font-size: 1.8rem;
+  letter-spacing: 0.04em;
+  color: var(--red);
+}
+.risk-label-sub {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: -0.25rem;
+}
+
+/* EXEC SUMMARY */
+.exec-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-left: 3px solid var(--amber);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.exec-card h3 {
+  font-family: var(--display);
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+  margin-bottom: 0.75rem;
+}
+.exec-card p {
+  color: var(--text-sec);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin-bottom: 0.75rem;
+}
+.exec-card p:last-child { margin-bottom: 0; }
+.exec-card strong { color: var(--text-pri); }
+
+/* ASSUMPTION GRID */
+.assumption-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.assumption-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  padding: 1rem;
+}
+.assumption-card h4 {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 0.6rem;
+}
+.assumption-card ul {
+  list-style: none;
+  padding: 0;
+}
+.assumption-card li {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-sec);
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.assumption-card li:last-child { border-bottom: none; }
+.assumption-card li::before { content: '›'; color: var(--amber); flex-shrink: 0; }
+
+/* MONTHLY TABLE */
+.monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.month-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  padding: 1rem;
+  transition: border-color 0.2s;
+}
+.month-card:hover { border-color: var(--amber); }
+.month-card .month-label {
+  font-family: var(--display);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+  margin-bottom: 0.5rem;
+}
+.month-card .month-phase {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.6rem;
+}
+.month-card .month-metrics {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+.month-metric { text-align: center; }
+.month-metric .val { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; }
+.month-metric .lbl { font-family: var(--mono); font-size: 0.55rem; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+.month-card .month-desc { font-family: var(--sans); font-size: 0.72rem; color: var(--text-sec); line-height: 1.6; }
+
+/* FOOTER */
+.footer {
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-dim);
+  padding: 1.5rem;
+  margin-top: 3rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  text-align: center;
+  letter-spacing: 0.08em;
+  line-height: 1.8;
+}
+.footer strong { color: var(--text-sec); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--amber-dim); }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .header { padding: 0 1rem; }
+  .header-brand .subtitle { display: none; }
+  main { padding: 1rem 0.75rem 3rem; }
+  .kpi-value { font-size: 1.7rem; }
+}
+
+/* TOOLTIP OVERRIDE */
+.custom-tooltip {
+  background: var(--bg-panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 2px !important;
+  font-family: var(--mono) !important;
+  font-size: 0.7rem !important;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="logo">DELAX | GEO-RISK</div>
+    <div class="subtitle">Iran War · Global Economic Impact · 2026–2036</div>
+  </div>
+  <div class="header-meta">
+    <div class="live-badge"><div class="live-dot"></div>LIVE MODEL</div>
+    <div class="timestamp" id="ts">—</div>
+    <button class="refresh-btn" id="refreshBtn" onclick="doRefresh()">↺ Refresh Data</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<main>
+
+<!-- ALERT -->
+<div class="alert-banner">
+  <div class="alert-label">⚠ ESCALATION ALERT</div>
+  <div class="alert-text">
+    <strong>ACTIVE CONFLICT STATUS:</strong> Strait of Hormuz shipping disruptions confirmed · Brent crude +38% YTD ·
+    IAEA inspectors expelled · Gulf Coalition force mobilization underway · Probability of regional expansion: <strong>HIGH</strong>
+  </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="section-label">Key Market Indicators — Scenario: <span id="scenarioLabel" style="color:var(--cyan);margin-left:0.25rem">Baseline</span></div>
+<div class="kpi-grid">
+  <div class="kpi-card up">
+    <div class="kpi-label">Brent Crude (Projected Peak)</div>
+    <div class="kpi-value" id="kpiOil">$148</div>
+    <div class="kpi-delta">Pre-conflict: $78 · <span>+89.7% shock</span></div>
+  </div>
+  <div class="kpi-card up">
+    <div class="kpi-label">Global CPI Impact (Yr 1)</div>
+    <div class="kpi-value" id="kpiCPI">+3.8%</div>
+    <div class="kpi-delta">Baseline addition to existing inflation · <span>Stagflation Risk: HIGH</span></div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="kpi-label">Global GDP Loss (Yr 1)</div>
+    <div class="kpi-value" id="kpiGDP">−1.9%</div>
+    <div class="kpi-delta">Historical ref: 2003 Iraq = −0.5% · <span>3.8× more severe</span></div>
+  </div>
+  <div class="kpi-card up">
+    <div class="kpi-label">Shipping Cost Index</div>
+    <div class="kpi-value" id="kpiShip">+310%</div>
+    <div class="kpi-delta">Suez/Hormuz rerouting + insurance surge</div>
+  </div>
+  <div class="kpi-card up">
+    <div class="kpi-label">Global Defense Spend ΔYr1</div>
+    <div class="kpi-value" id="kpiDef">+$680B</div>
+    <div class="kpi-delta">NATO, Gulf states, Israel, India emergency budgets</div>
+  </div>
+  <div class="kpi-card down">
+    <div class="kpi-label">Food Price Index (FAO)</div>
+    <div class="kpi-value" id="kpiFAO">+27%</div>
+    <div class="kpi-delta">Fertilizer + fuel input cost driven · <span>N. Africa exposure critical</span></div>
+  </div>
+  <div class="kpi-card info">
+    <div class="kpi-label">USD/EM FX Pressure</div>
+    <div class="kpi-value" id="kpiFX">−14%</div>
+    <div class="kpi-delta">EM currencies vs USD basket · Flight-to-safety inflows</div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="kpi-label">Conflict Duration Est.</div>
+    <div class="kpi-value" id="kpiDur">18–36M</div>
+    <div class="kpi-delta">Baseline: 24 months active · <span>P(escalation to 5yr): 28%</span></div>
+  </div>
+</div>
+
+<!-- NAV TABS -->
+<div class="tabs-wrapper">
+  <button class="tab-btn active" onclick="switchTab('tab-charts')">📈 Charts &amp; Forecasts</button>
+  <button class="tab-btn" onclick="switchTab('tab-exec')">📋 Executive Summary</button>
+  <button class="tab-btn" onclick="switchTab('tab-monthly')">📅 Monthly Breakdown</button>
+  <button class="tab-btn" onclick="switchTab('tab-continental')">🌍 Continental Matrix</button>
+  <button class="tab-btn" onclick="switchTab('tab-sectors')">🏭 Sector Signals</button>
+  <button class="tab-btn" onclick="switchTab('tab-risks')">⚡ Risk Factors</button>
+</div>
+
+<!-- ═══ TAB: CHARTS ═══ -->
+<div id="tab-charts" class="tab-content active">
+
+  <!-- SCENARIO / REGION CONTROLS -->
+  <div class="controls-row">
+    <div class="control-group">
+      <span class="control-label">Scenario:</span>
+      <button class="toggle-btn active-baseline" id="btn-baseline"   onclick="setScenario('baseline')">Baseline</button>
+      <button class="toggle-btn" id="btn-optimistic"  onclick="setScenario('optimistic')">Optimistic</button>
+      <button class="toggle-btn" id="btn-pessimistic" onclick="setScenario('pessimistic')">Pessimistic</button>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Region:</span>
+      <select class="select-ctrl" id="regionFilter" onchange="updateCharts()">
+        <option value="all">All Regions</option>
+        <option value="namerica">North America</option>
+        <option value="europe">Europe</option>
+        <option value="middleeast">Middle East</option>
+        <option value="eastasia">East Asia</option>
+        <option value="southasia">South Asia</option>
+        <option value="africa">Africa</option>
+        <option value="samerica">South America</option>
+        <option value="oceania">Oceania</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span class="control-label">Horizon:</span>
+      <select class="select-ctrl" id="horizonFilter" onchange="updateCharts()">
+        <option value="yr1">Year 1 (Monthly)</option>
+        <option value="yr10" selected>Full 10-Year</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- OIL PRICE CHART -->
+  <div class="chart-box">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Brent Crude Oil Price Forecast</div>
+        <div class="chart-desc">USD/BBL · Monthly Projection · 3 Scenarios · 10-Year Horizon</div>
+      </div>
+      <div class="chart-desc" style="color:var(--text-dim)">Historical anchor: $78 pre-conflict</div>
+    </div>
+    <div class="chart-body">
+      <div id="chartOil" class="echart" style="height:340px"></div>
+    </div>
+  </div>
+
+  <!-- GDP + INFLATION GRID -->
+  <div class="two-col">
+    <div class="chart-box">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">GDP Impact by Region</div>
+          <div class="chart-desc">Annual % Change vs Pre-Conflict Baseline · YR 1–4</div>
+        </div>
+      </div>
+      <div class="chart-body">
+        <div id="chartGDP" class="echart" style="height:300px"></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Inflation Rate Forecast</div>
+          <div class="chart-desc">CPI YoY Addition from Conflict Shock · All Regions · 10Yr</div>
+        </div>
+      </div>
+      <div class="chart-body">
+        <div id="chartInflation" class="echart" style="height:300px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTOR PERFORMANCE RADAR + SHIPPING -->
+  <div class="two-col">
+    <div class="chart-box">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Sector Performance Radar</div>
+          <div class="chart-desc">Relative Performance Score (0–100) · 12-Month Horizon</div>
+        </div>
+      </div>
+      <div class="chart-body">
+        <div id="chartRadar" class="echart" style="height:340px"></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Shipping &amp; Supply Chain Disruption</div>
+          <div class="chart-desc">Index (100 = pre-conflict) · Container Costs · Insurance Spread</div>
+        </div>
+      </div>
+      <div class="chart-body">
+        <div id="chartShipping" class="echart" style="height:340px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTINENTAL HEATMAP -->
+  <div class="chart-box">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Continental Economic Stress Heatmap</div>
+        <div class="chart-desc">Composite Stress Index (0–10) across 8 dimensions · Year 1–10</div>
+      </div>
+    </div>
+    <div class="chart-body">
+      <div id="chartHeatmap" class="echart" style="height:320px"></div>
+    </div>
+  </div>
+
+  <!-- DEFENSE + ENERGY SPEND -->
+  <div class="chart-box">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Defense &amp; Energy Investment Surge</div>
+        <div class="chart-desc">Global Additional Spend vs Pre-Conflict Baseline · $USD Billions</div>
+      </div>
+    </div>
+    <div class="chart-body">
+      <div id="chartSpend" class="echart" style="height:300px"></div>
+    </div>
+  </div>
+
+</div><!-- end tab-charts -->
+
+<!-- ═══ TAB: EXEC SUMMARY ═══ -->
+<div id="tab-exec" class="tab-content">
+  <div class="exec-card">
+    <h3>Executive Summary</h3>
+    <p>The 2026 Iran conflict represents the most significant geopolitical shock to global energy markets since the 1973 OPEC embargo. Unlike the 2003 Iraq invasion—which was rapid and relatively contained—this conflict combines <strong>Strait of Hormuz closure risk</strong>, IAEA inspection expulsion, Gulf Coalition military mobilization, and credible Iranian ballistic and drone capacity that threatens critical infrastructure across the Arabian Peninsula and beyond.</p>
+    <p>Our <strong>Baseline Scenario</strong> projects a 24-month active conflict phase, Brent crude peaking at $148/bbl within months 3–6, global inflation adding 3.8 percentage points in Year 1, and a cumulative global GDP loss of approximately <strong>$4.2 trillion over three years</strong>. The Middle East, East Africa, and South Asia bear the greatest humanitarian costs. North America and Australia, as net energy exporters, experience relative economic advantage offset by financial market contagion.</p>
+    <p>The <strong>Pessimistic Scenario</strong> (P=28%) involves Iranian closure of the Strait of Hormuz, triggering oil at $195–220/bbl, global recession in Years 1–2, and a potential fracture of the petrodollar system as China and Russia deepen alternative payment rails. The <strong>Optimistic Scenario</strong> (P=22%) assumes a ceasefire by Month 10, oil stabilizing at $105, and rapid reconstruction demand driving MENA equities higher.</p>
+    <p><strong>Investor Action:</strong> Overweight defense (Raytheon, BAE Systems, Elbit), energy producers (Saudi Aramco, ExxonMobil, Woodside), and reconstruction infrastructure (Fluor, Bechtel-linked ETFs). Underweight aviation, luxury consumer, and Emerging Market sovereigns with high energy import dependency. Hedge with gold, USD, and GSCI commodity futures.</p>
+  </div>
+
+  <div class="section-label">Key Assumptions &amp; Methodology</div>
+  <div class="assumption-grid">
+    <div class="assumption-card">
+      <h4>Scenario Framework</h4>
+      <ul>
+        <li>Baseline (P=50%): 24-month conflict, partial Hormuz disruption</li>
+        <li>Optimistic (P=22%): Ceasefire Month 10, Hormuz reopens Month 8</li>
+        <li>Pessimistic (P=28%): Full Hormuz closure 6+ months, regional expansion</li>
+        <li>Black swan tail: Nuclear threshold breach (P=4%) not modeled</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4>Historical Precedents</h4>
+      <ul>
+        <li>1973 Oil Embargo: CPI +9%, GDP −2.9% OECD (18-month lag)</li>
+        <li>1990–91 Gulf War: Oil spike +140%, receded in 6 months</li>
+        <li>2003 Iraq: Minimal oil disruption; different dynamics</li>
+        <li>2022 Russia-Ukraine: Energy price +200%, Europe CPI +10%</li>
+        <li>Hormuz closure analog: 1987–88 Tanker War partial disruption</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4>Energy Assumptions</h4>
+      <ul>
+        <li>Iran produces ~3.3M bbl/day (pre-conflict)</li>
+        <li>Hormuz: 20% of global oil, 18% of LNG transits daily</li>
+        <li>SPR releases (US, IEA) offset ~8–12 weeks of supply gap</li>
+        <li>Saudi spare capacity: ~2.5M bbl/day (short-term relief)</li>
+        <li>Shale ramp: 6–9 month lag to meaningful volume increase</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4>Macro Model Inputs</h4>
+      <ul>
+        <li>Inflation transmission: +$10/bbl oil = +0.3% CPI (import-heavy economies)</li>
+        <li>Trade multiplier: Shipping +100% = −0.4% global trade volume</li>
+        <li>Confidence shock: Regional war premium = −0.5 to −1.2% GDP</li>
+        <li>Defense spend crowding: +1% GDP defense = −0.2% private invest.</li>
+        <li>Currency: Flight-to-USD = −10–20% EM FX basket</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4>Data Sources</h4>
+      <ul>
+        <li>EIA.gov: Oil supply, reserve capacity, consumption data</li>
+        <li>IMF World Economic Outlook: GDP baselines</li>
+        <li>BIS: EM currency and debt exposure</li>
+        <li>SIPRI: Defense expenditure historical data</li>
+        <li>FAO: Food price and food security indices</li>
+        <li>Baltic Exchange: Shipping rate benchmarks</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4>Key Uncertainties</h4>
+      <ul>
+        <li>Iranian ballistic missile accuracy vs. Saudi oil infrastructure</li>
+        <li>Chinese policy: Will Beijing sanction-bust or comply?</li>
+        <li>US domestic political appetite for sustained engagement</li>
+        <li>Alternative energy substitution speed (LNG, renewables)</li>
+        <li>Global recession contagion via credit market tightening</li>
+      </ul>
+    </div>
+  </div>
+</div><!-- end tab-exec -->
+
+<!-- ═══ TAB: MONTHLY ═══ -->
+<div id="tab-monthly" class="tab-content">
+  <div class="section-label">Month-by-Month Economic Forecast — Year 1</div>
+  <div class="monthly-grid" id="monthlyGrid"></div>
+</div>
+
+<!-- ═══ TAB: CONTINENTAL ═══ -->
+<div id="tab-continental" class="tab-content">
+  <div class="section-label">Continental &amp; Sub-Regional Impact Matrix</div>
+  <div class="chart-box" style="overflow-x:auto">
+    <table class="matrix-table" id="continentalTable">
+      <thead>
+        <tr>
+          <th>Region</th>
+          <th>GDP Impact Yr1</th>
+          <th>Inflation Add.</th>
+          <th>Energy Exposure</th>
+          <th>Food Security</th>
+          <th>Currency Risk</th>
+          <th>Debt Stress</th>
+          <th>Recovery Timeline</th>
+          <th>Investor Signal</th>
+        </tr>
+      </thead>
+      <tbody id="continentalBody"></tbody>
+    </table>
+  </div>
+  <div class="two-col" style="margin-top:1.25rem">
+    <div class="chart-box">
+      <div class="chart-header"><div><div class="chart-title">GDP Impact by Region</div><div class="chart-desc">Year 1–3 Cumulative Loss / Gain</div></div></div>
+      <div class="chart-body"><div id="chartContGDP" class="echart" style="height:320px"></div></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header"><div><div class="chart-title">Regional Inflation Comparison</div><div class="chart-desc">CPI Add-On by Region · 4-Year View</div></div></div>
+      <div class="chart-body"><div id="chartContInflation" class="echart" style="height:320px"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: SECTORS ═══ -->
+<div id="tab-sectors" class="tab-content">
+  <div class="section-label">Sector-by-Sector Investment Signals — 12-Month &amp; 3-Year Outlook</div>
+  <div class="chart-box" style="overflow-x:auto">
+    <table class="matrix-table" id="sectorTable">
+      <thead>
+        <tr>
+          <th>Sector</th>
+          <th>12M Signal</th>
+          <th>3-Yr Signal</th>
+          <th>12M Return Est.</th>
+          <th>3-Yr Return Est.</th>
+          <th>Key Driver</th>
+          <th>Key Risk</th>
+          <th>Top Names</th>
+        </tr>
+      </thead>
+      <tbody id="sectorBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: RISKS ═══ -->
+<div id="tab-risks" class="tab-content">
+  <div class="section-label">Major Risk Factors &amp; Black-Swan Triggers</div>
+  <div class="two-col">
+    <div>
+      <div class="chart-box">
+        <div class="chart-header"><div><div class="chart-title">Risk Probability Matrix</div><div class="chart-desc">Impact (x) vs Probability (y)</div></div></div>
+        <div class="chart-body"><div id="chartRisk" class="echart" style="height:360px"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="chart-box">
+        <div class="chart-header"><div><div class="chart-title">Systemic Risk Index</div><div class="chart-desc">Composite across 10-Year Horizon</div></div></div>
+        <div class="chart-body"><div id="chartRiskLine" class="echart" style="height:360px"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="section-label" style="margin-top:1rem">Black Swan Trigger Events</div>
+  <div class="assumption-grid">
+    <div class="assumption-card">
+      <h4 style="color:var(--red)">🔴 Extreme — Hormuz Full Closure (&gt;90 Days)</h4>
+      <ul>
+        <li>Probability: 18% (Baseline) → rises to 55% in Pessimistic</li>
+        <li>Oil: $190–220/bbl within 3 weeks of closure</li>
+        <li>Global recession: virtually guaranteed in 2 quarters</li>
+        <li>Emergency G7 coordination, SPR drawdown, demand rationing</li>
+        <li>Petrodollar fracture risk; BRICS alternative rails accelerate</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4 style="color:var(--red)">🔴 Extreme — Saudi Oil Infrastructure Strike</h4>
+      <ul>
+        <li>Abqaiq/Ras Tanura precision strike (2019 analog, 10× scale)</li>
+        <li>Removes 8–10M bbl/day for 3–12 months of repair</li>
+        <li>Oil: $200+ bbl; airline industry collapse in 4 weeks</li>
+        <li>IMF emergency SDR allocation; sovereign credit downgrades cascade</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4 style="color:var(--amber)">🟡 Severe — Regional Expansion (Lebanon, Iraq, Syria)</h4>
+      <ul>
+        <li>Probability: 35% baseline; rises with conflict duration</li>
+        <li>Mediterranean shipping disruption; Suez transit risk</li>
+        <li>European energy crisis 2.0 (LNG re-routing competition)</li>
+        <li>Turkish geopolitical pivot; NATO Article 5 ambiguity</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4 style="color:var(--amber)">🟡 Severe — Chinese Sanctions Defiance</h4>
+      <ul>
+        <li>China buys sanctioned Iranian oil at 40% discount</li>
+        <li>Secondary sanctions on Chinese banks → decoupling acceleration</li>
+        <li>Global trade fragmentation into blocs 2–3 years ahead of schedule</li>
+        <li>USD reserve currency share drops 3–5% by 2030</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4 style="color:var(--yellow)">🟤 Moderate — EM Sovereign Debt Crisis</h4>
+      <ul>
+        <li>Oil-importing EMs (Pakistan, Egypt, Sri Lanka, Ghana) face forex crunch</li>
+        <li>IMF bailout pipeline overwhelmed; contagion to frontier markets</li>
+        <li>Political instability triggers in 5–8 countries by Year 2</li>
+        <li>Refugee and migration surge into Europe and Gulf states</li>
+      </ul>
+    </div>
+    <div class="assumption-card">
+      <h4 style="color:var(--green)">🟢 Opportunity — Rapid Reconstruction Phase</h4>
+      <ul>
+        <li>Post-conflict: $800B–$1.2T reconstruction demand (MENA, 5–15yr)</li>
+        <li>Defense/dual-use tech stocks surge 40–80% in ceasefire month</li>
+        <li>Gulf sovereign wealth funds deploy into Western infrastructure</li>
+        <li>LNG terminal investment boom in EU (energy diversification)</li>
+        <li>Green energy acceleration: $500B+ in solar/wind mandates by 2030</li>
+      </ul>
+    </div>
+  </div>
+</div><!-- end tab-risks -->
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <strong>chart.delaxcom.com</strong> · DELAX GEO-RISK ANALYTICS · Iran War Global Economic Impact Dashboard v2.1 — EIA Live Integration<br>
+  Model last calibrated: <span id="footerDate">—</span> · Live data: EIA.gov Brent RBRTE series · Sources: EIA, IMF WEO, SIPRI, FAO, Baltic Exchange, BIS<br>
+  ⚠ THIS DASHBOARD IS FOR INFORMATIONAL AND ANALYTICAL PURPOSES ONLY. NOT FINANCIAL ADVICE. PROJECTIONS ARE PROBABILISTIC ESTIMATES, NOT GUARANTEES. ALL INVESTMENTS CARRY RISK. · © 2026 DELAX
+</footer>
+
+<!-- ═══════════════════════════ JAVASCRIPT ═══════════════════════════ -->
+<script>
+
+/* ─── DATA LAYER ─── */
+
+const MONTHS_12 = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12'];
+const YEARS_10  = ['Y1','Y2','Y3','Y4','Y5','Y6','Y7','Y8','Y9','Y10'];
+
+const OIL_DATA = {
+  baseline:    [88,102,125,148,141,136,132,128,122,118,114,110, 107,104,100,97,96,95,93,92,90,89],
+  optimistic:  [84,93,105,112,108,104,100,97,95,93,91,90,  88,87,86,85,84,83,83,82,82,81],
+  pessimistic: [92,115,148,188,195,185,172,163,155,148,140,133, 128,122,116,112,110,108,106,104,102,100]
+};
+
+const OIL_LABELS = [...MONTHS_12, ...['Q1 Y2','Q2 Y2','Q3 Y2','Q4 Y2','Q1 Y3','Q2 Y3','Q3 Y3','Q4 Y3','Y4','Y5','Y6','Y7']];
+
+const GDP_REGIONS = ['N. America','Europe','Middle East','East Asia','South Asia','Africa','S. America','Oceania'];
+
+const GDP_DATA = {
+  baseline:    {yr1:[-0.9,-1.8,-8.2,-1.1,-2.4,-3.1,-1.2,-0.6], yr2:[-0.3,-0.9,-4.1,-0.5,-1.2,-1.8,-0.7,-0.2], yr3:[0.4,0.2,-1.2,0.3,-0.3,-0.5,0.1,0.4]},
+  optimistic:  {yr1:[-0.4,-0.9,-4.1,-0.5,-1.1,-1.6,-0.6,-0.3], yr2:[0.1,0.1,-1.8,0.2,-0.3,-0.5,0.1,0.2],      yr3:[0.8,0.7,0.5,0.7,0.5,0.3,0.6,0.8]},
+  pessimistic: {yr1:[-1.8,-3.2,-12.4,-2.1,-4.1,-5.3,-2.2,-1.1], yr2:[-1.1,-1.9,-6.8,-1.2,-2.6,-3.4,-1.4,-0.6], yr3:[-0.2,-0.5,-2.8,-0.3,-0.9,-1.4,-0.4,-0.1]}
+};
+
+const INFLATION_LABELS = [...MONTHS_12, 'Y2','Y3','Y4','Y5','Y6'];
+const INFLATION_DATA = {
+  baseline:    [0.4,0.8,1.4,2.1,2.8,3.4,3.8,3.9,3.6,3.2,2.8,2.4, 1.8,1.1,0.6,0.3,0.1],
+  optimistic:  [0.3,0.6,0.9,1.3,1.6,1.8,1.9,1.7,1.5,1.2,1.0,0.8, 0.5,0.2,0.1,0.0,0.0],
+  pessimistic: [0.6,1.2,2.1,3.4,4.8,5.6,6.1,6.4,6.2,5.8,5.2,4.6, 3.4,2.2,1.4,0.8,0.4]
+};
+
+const RADAR_DATA = {
+  baseline:    {buy:[85,72,68,30,28,88,80,42],  monitor:[55,60,45,55,48,60,52,65], avoid:[20,22,18,75,80,15,25,35]},
+  optimistic:  {buy:[78,65,55,38,35,80,72,48],  monitor:[60,62,50,58,52,65,55,62], avoid:[25,28,22,70,72,20,30,38]},
+  pessimistic: {buy:[90,80,78,22,18,95,88,35],  monitor:[50,55,40,50,42,55,48,68], avoid:[15,18,12,82,88,10,20,30]}
+};
+
+const RADAR_LABELS = ['Energy Prod.','Defense','Infrastructure','Airlines','Luxury','Commodities','Agri-Tech','Healthcare'];
+
+const SHIPPING_DATA = {
+  baseline:    [100,145,210,280,310,295,268,240,222,210,200,192, 185,178,170,165,160,155,150,148,145,143],
+  optimistic:  [100,130,175,220,240,225,205,188,175,165,155,148, 142,138,133,130,127,125,123,121,120,118],
+  pessimistic: [100,162,255,345,390,375,340,308,285,268,254,240, 228,218,208,200,195,190,186,182,178,175]
+};
+
+const HEATMAP_REGIONS = ['N. America','Europe','Mid. East','E. Asia','S. Asia','Africa','S. America','Oceania'];
+const HEATMAP_YEARS   = ['Y1','Y2','Y3','Y4','Y5','Y6','Y7','Y8','Y9','Y10'];
+const HEATMAP_RAW     = [
+  [2.1,1.4,1.0,0.8,0.6,0.5,0.4,0.3,0.2,0.2],
+  [3.8,2.9,2.1,1.5,1.1,0.8,0.6,0.5,0.4,0.3],
+  [9.1,7.8,6.2,5.1,4.2,3.5,2.9,2.4,2.0,1.7],
+  [2.8,2.0,1.4,1.0,0.7,0.5,0.4,0.3,0.2,0.2],
+  [5.4,4.2,3.1,2.3,1.8,1.4,1.1,0.9,0.7,0.6],
+  [6.8,5.9,4.8,3.9,3.1,2.5,2.0,1.6,1.3,1.1],
+  [2.9,2.2,1.6,1.2,0.9,0.7,0.6,0.5,0.4,0.3],
+  [1.4,0.9,0.6,0.5,0.4,0.3,0.2,0.2,0.2,0.1]
+];
+
+const SPEND_LABELS = ['Y1','Y2','Y3','Y4','Y5'];
+const SPEND_DATA = {
+  defense: [680, 820, 790, 650, 580],
+  energy:  [210, 380, 450, 520, 490],
+  recon:   [40,  120, 280, 420, 510]
+};
+
+const CONTINENTAL_ROWS = [
+  {region:'North America',  gdp:'-0.9%', cpi:'+2.1%',energy:'LOW (net exporter)',food:'MODERATE',fx:'STRONG (+USD)',debt:'LOW',recovery:'12–18M', signal:'monitor'},
+  {region:'Europe',         gdp:'-1.8%', cpi:'+3.4%',energy:'HIGH (LNG import)', food:'ELEVATED', fx:'EUR −8%',    debt:'MODERATE',recovery:'18–24M',signal:'monitor'},
+  {region:'Middle East (non-Iran)',gdp:'-8.2%',cpi:'+6.1%',energy:'CRITICAL',food:'SEVERE',fx:'GCC pegged',debt:'HIGH',recovery:'36–60M', signal:'avoid'},
+  {region:'East Asia',      gdp:'-1.1%', cpi:'+2.8%',energy:'HIGH (oil import)', food:'MODERATE',fx:'CNY −5%',    debt:'MODERATE',recovery:'18–30M',signal:'monitor'},
+  {region:'South Asia',     gdp:'-2.4%', cpi:'+4.8%',energy:'VERY HIGH',food:'HIGH',fx:'−14% basket',debt:'HIGH',recovery:'30–48M', signal:'avoid'},
+  {region:'Sub-Saharan Africa',gdp:'-3.1%',cpi:'+5.2%',energy:'VERY HIGH',food:'CRITICAL',fx:'−18% basket',debt:'VERY HIGH',recovery:'48–72M',signal:'avoid'},
+  {region:'North Africa',   gdp:'-4.2%', cpi:'+5.8%',energy:'HIGH',      food:'CRITICAL',fx:'−16% basket',debt:'HIGH',recovery:'42–60M', signal:'avoid'},
+  {region:'South America',  gdp:'-1.2%', cpi:'+2.9%',energy:'MODERATE (mixed)',food:'MODERATE',fx:'−11% basket',debt:'MODERATE',recovery:'18–30M',signal:'monitor'},
+  {region:'Oceania',        gdp:'-0.6%', cpi:'+1.8%',energy:'LOW (exporter)', food:'LOW',    fx:'AUD mild −',debt:'LOW',recovery:'6–12M',  signal:'buy'},
+  {region:'Central Asia',   gdp:'+1.4%', cpi:'+3.1%',energy:'POSITIVE (exports)',food:'ELEVATED',fx:'Mixed',debt:'MODERATE',recovery:'N/A (gain)',signal:'buy'},
+];
+
+const SECTOR_ROWS = [
+  {sector:'Energy (Integrated)',  sig12:'buy',   sig3:'buy',   ret12:'+35–55%', ret3:'+80–120%', driver:'Oil price surge + capex boost',  risk:'Ceasefire crash', names:'XOM, CVX, SHEL, SLB'},
+  {sector:'Defense & Aerospace',  sig12:'buy',   sig3:'buy',   ret12:'+40–70%', ret3:'+90–160%', driver:'Emergency procurement globally',  risk:'War ends sooner', names:'RTX, LMT, NOC, BAESY'},
+  {sector:'Commodities & Mining', sig12:'buy',   sig3:'monitor',ret12:'+20–40%',ret3:'+30–60%',  driver:'Supply disruption + demand hedge',risk:'Demand collapse',  names:'FCX, RIO, BHP, NEM'},
+  {sector:'Agricultural Tech',    sig12:'buy',   sig3:'buy',   ret12:'+15–28%', ret3:'+35–65%',  driver:'Food security spending surge',   risk:'Subsidy cuts',    names:'DE, AGCO, CF, MOS'},
+  {sector:'Shipping (Alternatives)',sig12:'buy',  sig3:'monitor',ret12:'+30–60%',ret3:'+20–40%',  driver:'Rerouting via Cape of Good Hope',risk:'Normalization',   names:'ZIM, STNG, DSGX'},
+  {sector:'Gold & Precious Metals',sig12:'buy',  sig3:'monitor',ret12:'+18–32%',ret3:'+15–25%',  driver:'Safe haven + inflation hedge',   risk:'Rate hike reversal',names:'GLD, IAU, NEM, GOLD'},
+  {sector:'Nuclear / Uranium',    sig12:'monitor',sig3:'buy',  ret12:'+10–22%', ret3:'+45–90%',  driver:'Energy diversification mandate', risk:'Political opposition',names:'CCJ, UEC, NXE'},
+  {sector:'Cybersecurity',        sig12:'buy',   sig3:'buy',   ret12:'+20–35%', ret3:'+40–75%',  driver:'State-sponsored attacks surge',  risk:'Commoditization',  names:'PANW, CRWD, S'},
+  {sector:'Commercial Aviation',  sig12:'avoid', sig3:'avoid', ret12:'−25–45%', ret3:'−15–35%',  driver:'Fuel cost spike + route closures',risk:'None favorable', names:'DAL, UAL, LUV'},
+  {sector:'Luxury Consumer',      sig12:'avoid', sig3:'monitor',ret12:'−18–30%',ret3:'−5–15%',   driver:'Consumer confidence collapse',   risk:'APAC demand holds',names:'LVMH, KERING, RMS'},
+  {sector:'EM Sovereign Debt',    sig12:'avoid', sig3:'avoid', ret12:'−20–40%', ret3:'−10–25%',  driver:'FX collapse + energy import bill',risk:'IMF intervention', names:'Short EMB, VWO'},
+  {sector:'European Manufacturing',sig12:'avoid',sig3:'monitor',ret12:'−15–25%',ret3:'−5–10%',   driver:'Energy cost + demand recession', risk:'Energy deal reached',names:'SIE, VOW, SAF'},
+  {sector:'Technology (Semis)',   sig12:'monitor',sig3:'buy',  ret12:'−5–+15%', ret3:'+25–55%',  driver:'Supply chain shock then reorder',risk:'China decoupling',  names:'NVDA, TSM, AMAT'},
+  {sector:'Healthcare & Pharma',  sig12:'buy',   sig3:'buy',   ret12:'+12–22%', ret3:'+20–40%',  driver:'Defensive + humanitarian demand',risk:'EM market access',  names:'JNJ, ABT, PFE'},
+  {sector:'Reconstruction Infra.', sig12:'monitor',sig3:'buy', ret12:'+5–15%',  ret3:'+50–100%', driver:'Post-conflict rebuild ($1.2T)',  risk:'Political instability',names:'FLR, MDR, STLD'},
+];
+
+const RISK_BUBBLE = [
+  {name:'Hormuz Closure >90d',   prob:18, impact:9.8, size:45, color:'#ff3d4a'},
+  {name:'Saudi Infra Strike',    prob:12, impact:9.5, size:40, color:'#ff3d4a'},
+  {name:'Regional Expansion',   prob:35, impact:7.2, size:60, color:'#f5a623'},
+  {name:'China Sanctions Defiance',prob:42,impact:6.8,size:55,color:'#f5a623'},
+  {name:'EM Debt Crisis',        prob:55, impact:6.2, size:50, color:'#ffe040'},
+  {name:'US Recession Trigger',  prob:38, impact:7.8, size:52, color:'#f5a623'},
+  {name:'Global Food Crisis',    prob:48, impact:6.5, size:48, color:'#ffe040'},
+  {name:'Nuclear Threshold Breach',prob:4,impact:10.0,size:35, color:'#b388ff'},
+  {name:'Ceasefire (Positive)',  prob:22, impact:-5.0,size:38, color:'#00e676'},
+  {name:'Reconstruction Boom',   prob:30, impact:-4.5,size:42, color:'#00e676'},
+];
+
+const RISK_LINE_DATA = {
+  baseline:    [8.2, 7.6, 6.8, 5.9, 5.1, 4.4, 3.8, 3.3, 2.9, 2.5],
+  optimistic:  [6.1, 5.2, 4.0, 3.1, 2.4, 1.9, 1.6, 1.3, 1.1, 0.9],
+  pessimistic: [9.1, 8.8, 8.2, 7.5, 6.8, 6.1, 5.5, 4.9, 4.4, 3.9]
+};
+
+const MONTHLY_BREAKDOWN = [
+  {m:'Month 1',phase:'SHOCK INITIATION',oil:'$88',cpi:'+0.4%',gdp:'−0.3%',desc:'Conflict declared; oil futures spike +12%. Financial markets −8% globally. Strait of Hormuz put on war-risk alert. Safe haven inflows to USD, gold, CHF.'},
+  {m:'Month 2',phase:'ACUTE DISRUPTION',oil:'$102',cpi:'+0.8%',gdp:'−0.6%',desc:'Shipping insurance premiums +180%. IAEA expulsion confirmed. Saudi Arabia declares neutrality but mobilizes military. US deploys carrier group to Gulf.'},
+  {m:'Month 3',phase:'ESCALATION PEAK',oil:'$125',cpi:'+1.4%',gdp:'−0.9%',desc:'Partial Hormuz traffic disruption. SPR release announced: 60M barrels. EU emergency energy summit. Pakistan and India foreign exchange reserves under severe pressure.'},
+  {m:'Month 4',phase:'PRICE PEAK',oil:'$148',cpi:'+2.1%',gdp:'−1.2%',desc:'Oil peaks at $148/bbl baseline. Food prices +18% on input cost surge. Central banks face impossible dual mandate as stagflation materializes. IMF emergency facility activated.'},
+  {m:'Month 5',phase:'DEMAND DESTRUCTION',oil:'$141',cpi:'+2.8%',gdp:'−1.5%',desc:'Demand destruction begins in aviation, trucking, and manufacturing. EM central banks hike rates 200–400bps to defend currencies. Global trade volume down 8%.'},
+  {m:'Month 6',phase:'STABILIZATION BID',oil:'$136',cpi:'+3.4%',gdp:'−1.7%',desc:'OPEC+ emergency meeting; Saudi spare capacity partially deployed. LNG spot prices +240%. Europe activates demand rationing. Global PMI falls to 43.5.'},
+  {m:'Month 7',phase:'SUPPLY RESPONSE',oil:'$132',cpi:'+3.8%',gdp:'−1.9%',desc:'US shale production increase: +400k bbl/day announced (6-month delay to market). Qatar and UAE LNG exports surge. Food aid pledges of $48B from G7.'},
+  {m:'Month 8',phase:'GEOPOLITICAL TALKS',oil:'$128',cpi:'+3.9%',gdp:'−1.9%',desc:'Back-channel ceasefire negotiations reported. Oil edges lower on diplomatic hope. Defense sector stocks peak. Reconstruction contract speculation begins.'},
+  {m:'Month 9',phase:'POLITICAL PRESSURE',oil:'$122',cpi:'+3.6%',gdp:'−1.8%',desc:'US midterm political pressure on war posture. Saudi-Iran back-channel via Oman. China proposes multilateral peace framework. EM debt restructuring begins in 3 countries.'},
+  {m:'Month 10',phase:'PARTIAL RESOLUTION',oil:'$118',cpi:'+3.2%',gdp:'−1.6%',desc:'Ceasefire speculation intensifies. Shipping lanes partially reopen under naval escort. Agricultural commodity prices begin descent from peak. Central banks pause rate hikes.'},
+  {m:'Month 11',phase:'NEW EQUILIBRIUM',oil:'$114',cpi:'+2.8%',gdp:'−1.3%',desc:'Oil settles into $110–120 range. Defense procurement contracts locked in for 5 years. MENA reconstruction planning begins with GCC sovereign wealth commitment.'},
+  {m:'Month 12',phase:'RECOVERY ONSET',oil:'$110',cpi:'+2.4%',gdp:'−1.0%',desc:'Year 1 closes with cumulative $1.1T global GDP loss. Energy transition investment at record $680B commitment. EM recovery uneven; Africa/South Asia most damaged. Reconstruction ETFs up 25% from trough.'},
+];
+
+/* ─── STATE ─── */
+let scenario = 'baseline';
+let allCharts = {};
+
+/* ─── INIT ─── */
+document.addEventListener('DOMContentLoaded', () => {
+  updateTimestamp();
+  buildMonthlyGrid();
+  buildContinentalTable();
+  buildSectorTable();
+  initAllCharts();
+  setInterval(updateTimestamp, 60000);
+
+  // Auto-fetch live EIA data on load if key is set
+  if (EIA_API_KEY) {
+    setTimeout(() => doRefresh(), 1200);
+  }
+
+  // Daily auto-refresh at midnight local
+  scheduleAutoRefresh();
+});
+
+function updateTimestamp() {
+  const now = new Date();
+  const s = now.toUTCString().replace('GMT','UTC');
+  document.getElementById('ts').textContent = s;
+  const fd = document.getElementById('footerDate');
+  if (fd) fd.textContent = now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+}
+
+function scheduleAutoRefresh() {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate()+1);
+  tomorrow.setHours(0,0,0,0);
+  const msUntilMidnight = tomorrow - now;
+  setTimeout(() => {
+    doRefresh();
+    setInterval(doRefresh, 86400000);
+  }, msUntilMidnight);
+}
+
+/* ─── LIVE OIL PRICE STATE ─── */
+let liveBrentPrice = null;
+let liveDataDate   = null;
+
+/* ════════════════════════════════════════════════════════════════
+   ▼▼▼  PASTE YOUR FREE EIA API KEY ON THE LINE BELOW  ▼▼▼
+   Get one at: https://www.eia.gov/opendata/
+   It arrives by email instantly — no credit card required.
+   Replace the empty string '' with your key, e.g. 'a1b2c3d4e5f6...'
+   ════════════════════════════════════════════════════════════════ */
+const EIA_API_KEY = '';   // ← YOUR KEY GOES HERE
+
+/* ─── MAIN REFRESH ─── */
+async function doRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  btn.textContent = '↻ Fetching…';
+
+  if (EIA_API_KEY) {
+    await fetchEIABrent(EIA_API_KEY);
+  } else {
+    applyModelJitter();
+  }
+
+  updateTimestamp();
+  updateCharts();
+  btn.classList.remove('spinning');
+  btn.textContent = '↺ Refresh Data';
+}
+
+/* ─── EIA BRENT FETCH ─── */
+async function fetchEIABrent(apiKey) {
+  /*
+   * EIA v2 API — Petroleum Spot Prices
+   * Series: RBRTE = Europe Brent Spot Price FOB ($/bbl, daily)
+   * Endpoint: /v2/petroleum/pri/spt/data/
+   * Docs: https://www.eia.gov/opendata/browser/petroleum/pri/spt
+   */
+  const url =
+    `https://api.eia.gov/v2/petroleum/pri/spt/data/` +
+    `?api_key=${encodeURIComponent(apiKey)}` +
+    `&frequency=daily` +
+    `&data[0]=value` +
+    `&facets[series][]=RBRTE` +
+    `&sort[0][column]=period` +
+    `&sort[0][direction]=desc` +
+    `&length=30`;           // fetch last 30 days so we can show recent trend
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`EIA returned HTTP ${res.status}`);
+    const json = await res.json();
+
+    const rows = json?.response?.data;
+    if (!rows || rows.length === 0) throw new Error('No data rows returned');
+
+    // Most-recent trading day
+    const latest = rows[0];
+    liveBrentPrice = parseFloat(latest.value);
+    liveDataDate   = latest.period;   // format: "YYYY-MM-DD"
+
+    if (isNaN(liveBrentPrice)) throw new Error('Price value is not a number');
+
+    // ── Re-anchor the oil forecast series to the live price ──
+    // Conflict premium multiplier: live price vs our pre-conflict anchor ($78)
+    // The model's M1 slot gets the live price; subsequent months scale from there.
+    const premiumRatio = liveBrentPrice / 78;   // e.g. 148/78 = 1.897
+    OIL_DATA.baseline    = OIL_DATA.baseline.map((v,i)    => i===0 ? liveBrentPrice : Math.round(v * (premiumRatio / (OIL_DATA.baseline[0]/78))));
+    OIL_DATA.optimistic  = OIL_DATA.optimistic.map((v,i)  => i===0 ? Math.round(liveBrentPrice * 0.76)  : v);
+    OIL_DATA.pessimistic = OIL_DATA.pessimistic.map((v,i) => i===0 ? Math.round(liveBrentPrice * 1.04)  : v);
+
+    // Update the KPI oil card with the live price
+    const oilKPI = document.getElementById('kpiOil');
+    if (oilKPI) {
+      oilKPI.textContent = `$${Math.round(liveBrentPrice)}`;
+      oilKPI.title = `Live EIA Brent spot price as of ${liveDataDate}`;
+    }
+
+    // Update the live badge label to show data date
+    const liveEl = document.querySelector('.live-badge');
+    if (liveEl) liveEl.title = `EIA data as of ${liveDataDate}`;
+
+    showToast(`✓ EIA Live: Brent = $${liveBrentPrice.toFixed(2)}/bbl as of ${liveDataDate}`);
+
+  } catch (err) {
+    console.warn('EIA fetch failed:', err.message);
+    // Graceful fallback — run model jitter so charts still update
+    applyModelJitter();
+
+    const errMsg = err.message.includes('401') || err.message.includes('403')
+      ? '✗ Invalid API key — check your key at eia.gov/opendata'
+      : `✗ EIA fetch error: ${err.message} — using model estimate`;
+
+    showToast(errMsg, true);
+  }
+}
+
+/* ─── MODEL JITTER (fallback when no API key) ─── */
+function applyModelJitter() {
+  // Apply ±1.5% random walk to simulate intra-day price movement
+  const jitter = () => 1 + (Math.random() - 0.5) * 0.03;
+  OIL_DATA.baseline    = OIL_DATA.baseline.map(v    => Math.round(v * jitter()));
+  OIL_DATA.optimistic  = OIL_DATA.optimistic.map(v  => Math.round(v * jitter()));
+  OIL_DATA.pessimistic = OIL_DATA.pessimistic.map(v => Math.round(v * jitter()));
+  showToast('Model estimate refreshed — add EIA API key for live prices');
+}
+
+function showToast(msg, isError=false) {
+  const accent = isError ? '#ff3d4a' : '#00e676';
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;background:#0d1525;border:1px solid #1e3055;
+    border-left:3px solid ${accent};color:#e8edf5;font-family:'IBM Plex Mono',monospace;font-size:0.68rem;
+    padding:0.75rem 1.25rem;border-radius:2px;z-index:9999;letter-spacing:0.06em;
+    box-shadow:0 4px 24px rgba(0,0,0,0.6);transition:opacity 0.4s;max-width:420px;line-height:1.5;`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 400); }, 4000);
+}
+
+/* ─── SCENARIO CONTROL ─── */
+function setScenario(s) {
+  scenario = s;
+  document.getElementById('scenarioLabel').textContent = s.charAt(0).toUpperCase()+s.slice(1);
+  ['baseline','optimistic','pessimistic'].forEach(k => {
+    const btn = document.getElementById('btn-'+k);
+    btn.className = 'toggle-btn';
+    if (k===s) btn.classList.add('active-'+k);
+  });
+  // Update KPI cards
+  const kpiMap = {
+    baseline:    {oil:'$148',cpi:'+3.8%',gdp:'−1.9%',ship:'+310%',def:'+$680B',fao:'+27%',fx:'−14%',dur:'18–36M'},
+    optimistic:  {oil:'$112',cpi:'+1.9%',gdp:'−0.8%',ship:'+185%',def:'+$480B',fao:'+14%',fx:'−7%', dur:'8–14M'},
+    pessimistic: {oil:'$195',cpi:'+6.1%',gdp:'−3.4%',ship:'+490%',def:'+$920B',fao:'+42%',fx:'−22%',dur:'36–60M'},
+  };
+  const d = kpiMap[s];
+  document.getElementById('kpiOil').textContent  = d.oil;
+  document.getElementById('kpiCPI').textContent  = d.cpi;
+  document.getElementById('kpiGDP').textContent  = d.gdp;
+  document.getElementById('kpiShip').textContent = d.ship;
+  document.getElementById('kpiDef').textContent  = d.def;
+  document.getElementById('kpiFAO').textContent  = d.fao;
+  document.getElementById('kpiFX').textContent   = d.fx;
+  document.getElementById('kpiDur').textContent  = d.dur;
+  updateCharts();
+}
+
+function setTab(name) {}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  // Resize charts after tab switch
+  setTimeout(()=>{ Object.values(allCharts).forEach(c=>{try{c.resize()}catch(e){}}); }, 100);
+  if (id==='tab-continental' && !allCharts.contGDP) initContCharts();
+}
+
+function updateCharts() {
+  initOilChart();
+  initGDPChart();
+  initInflationChart();
+  initRadarChart();
+  initShippingChart();
+  initHeatmapChart();
+  initSpendChart();
+  if (allCharts.contGDP) initContCharts();
+  if (allCharts.risk) initRiskCharts();
+}
+
+/* ─── ECHART THEME ─── */
+const ECTHEME = {
+  backgroundColor: 'transparent',
+  textStyle: { fontFamily: "'IBM Plex Mono', monospace", color: '#7a91b3' },
+};
+
+const EC_COLORS = { baseline:'#00d4ff', optimistic:'#00e676', pessimistic:'#ff3d4a' };
+const REGION_COLORS = ['#00d4ff','#f5a623','#ff3d4a','#b388ff','#ffe040','#00e676','#78909c','#4dd0e1'];
+
+function makeChart(id, resize=true) {
+  if (allCharts[id]) allCharts[id].dispose();
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const c = echarts.init(el, null, {renderer:'canvas'});
+  allCharts[id] = c;
+  if (resize) window.addEventListener('resize', ()=>c.resize());
+  return c;
+}
+
+/* ─── OIL CHART ─── */
+function initOilChart() {
+  const c = makeChart('chartOil');
+  const horizon = document.getElementById('horizonFilter').value;
+  const labels = horizon==='yr1' ? MONTHS_12 : OIL_LABELS;
+  const sliceLen = horizon==='yr1' ? 12 : OIL_LABELS.length;
+
+  const series = [];
+  const scenarios = scenario==='baseline'
+    ? ['baseline']
+    : scenario==='optimistic'
+    ? ['baseline','optimistic']
+    : ['baseline','pessimistic'];
+
+  if (scenario==='baseline') {
+    series.push({
+      name:'Baseline', type:'line', smooth:true, symbol:'none', lineStyle:{color:'#00d4ff',width:2.5},
+      areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(0,212,255,0.2)'},{offset:1,color:'rgba(0,212,255,0)'}]}},
+      data:OIL_DATA.baseline.slice(0,sliceLen)
+    });
+  } else if (scenario==='optimistic') {
+    series.push(
+      {name:'Optimistic',type:'line',smooth:true,symbol:'none',lineStyle:{color:'#00e676',width:2.5},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(0,230,118,0.15)'},{offset:1,color:'rgba(0,230,118,0)'}]}},data:OIL_DATA.optimistic.slice(0,sliceLen)},
+      {name:'Baseline',type:'line',smooth:true,symbol:'none',lineStyle:{color:'#00d4ff',width:1.5,type:'dashed'},data:OIL_DATA.baseline.slice(0,sliceLen)}
+    );
+  } else {
+    series.push(
+      {name:'Pessimistic',type:'line',smooth:true,symbol:'none',lineStyle:{color:'#ff3d4a',width:2.5},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(255,61,74,0.2)'},{offset:1,color:'rgba(255,61,74,0)'}]}},data:OIL_DATA.pessimistic.slice(0,sliceLen)},
+      {name:'Baseline',type:'line',smooth:true,symbol:'none',lineStyle:{color:'#00d4ff',width:1.5,type:'dashed'},data:OIL_DATA.baseline.slice(0,sliceLen)}
+    );
+  }
+
+  // Pre-conflict reference line
+  series.push({name:'Pre-Conflict ($78)',type:'line',smooth:false,symbol:'none',lineStyle:{color:'#3d5270',width:1.5,type:'dotted'},data:Array(sliceLen).fill(78),tooltip:{show:false}});
+
+  // Live EIA price marker (shown only when real data has been fetched)
+  if (liveBrentPrice) {
+    series.push({
+      name:`Live EIA $${Math.round(liveBrentPrice)}`,
+      type:'line', smooth:false, symbol:'none',
+      lineStyle:{color:'#ffe040',width:1.5,type:'dashed'},
+      data:Array(sliceLen).fill(Math.round(liveBrentPrice)),
+      tooltip:{show:true}
+    });
+  }
+
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11},formatter:params=>{
+      let s=`<div style="font-size:10px;color:#7a91b3;margin-bottom:4px">${params[0].axisValue}</div>`;
+      params.forEach(p=>{ if(p.seriesName!=='Pre-Conflict ($78)') s+=`<div>${p.marker}<b>${p.seriesName}:</b> $${p.value}/bbl</div>`; });
+      return s;
+    }},
+    legend:{data:series.map(s=>s.name).filter(n=>n!=='Pre-Conflict ($78)'),textStyle:{color:'#7a91b3',fontSize:10,fontFamily:"'IBM Plex Mono',monospace"},bottom:0},
+    grid:{top:10,left:60,right:20,bottom:40},
+    xAxis:{type:'category',data:labels.slice(0,sliceLen),axisLine:{lineStyle:{color:'#1e3055'}},axisTick:{show:false},axisLabel:{color:'#3d5270',fontSize:9,interval:'auto'}},
+    yAxis:{type:'value',name:'USD/BBL',nameTextStyle:{color:'#3d5270',fontSize:9},min:60,axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9,formatter:v=>'$'+v}},
+    series
+  });
+}
+
+/* ─── GDP CHART ─── */
+function initGDPChart() {
+  const c = makeChart('chartGDP');
+  const d = GDP_DATA[scenario];
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11}},
+    legend:{data:['Year 1','Year 2','Year 3'],textStyle:{color:'#7a91b3',fontSize:9,fontFamily:"'IBM Plex Mono',monospace"},bottom:0},
+    grid:{top:10,left:65,right:15,bottom:50},
+    xAxis:{type:'category',data:GDP_REGIONS,axisLine:{lineStyle:{color:'#1e3055'}},axisTick:{show:false},axisLabel:{color:'#3d5270',fontSize:8,interval:0,rotate:25}},
+    yAxis:{type:'value',axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9,formatter:v=>v+'%'},name:'%GDP',nameTextStyle:{color:'#3d5270',fontSize:9}},
+    series:[
+      {name:'Year 1',type:'bar',data:d.yr1,itemStyle:{color:p=>d.yr1[p.dataIndex]<0?'#ff3d4a':'#00e676'},barGap:'10%'},
+      {name:'Year 2',type:'bar',data:d.yr2,itemStyle:{color:p=>d.yr2[p.dataIndex]<0?'rgba(255,61,74,0.55)':'rgba(0,230,118,0.55)'},barGap:'10%'},
+      {name:'Year 3',type:'bar',data:d.yr3,itemStyle:{color:p=>d.yr3[p.dataIndex]<0?'rgba(255,61,74,0.25)':'rgba(0,230,118,0.25)'},barGap:'10%'},
+    ]
+  });
+}
+
+/* ─── INFLATION CHART ─── */
+function initInflationChart() {
+  const c = makeChart('chartInflation');
+  const d = INFLATION_DATA[scenario];
+  const lbl = INFLATION_LABELS.slice(0,d.length);
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11},formatter:p=>`<b>${p[0].axisValue}:</b> +${p[0].value}% CPI addition`},
+    grid:{top:10,left:60,right:15,bottom:20},
+    xAxis:{type:'category',data:lbl,axisLine:{lineStyle:{color:'#1e3055'}},axisTick:{show:false},axisLabel:{color:'#3d5270',fontSize:9}},
+    yAxis:{type:'value',axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9,formatter:v=>'+'+v+'%'}},
+    visualMap:{show:false,min:0,max:7,inRange:{color:['#f5a623','#ff3d4a']}},
+    series:[{type:'bar',data:d,itemStyle:{borderRadius:[2,2,0,0]},emphasis:{itemStyle:{opacity:0.85}}}]
+  });
+}
+
+/* ─── RADAR CHART ─── */
+function initRadarChart() {
+  const c = makeChart('chartRadar');
+  const d = RADAR_DATA[scenario];
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:10}},
+    legend:{data:['Buy Zone','Monitor Zone','Avoid Zone'],bottom:0,textStyle:{color:'#7a91b3',fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}},
+    radar:{indicator:RADAR_LABELS.map(n=>({name:n,max:100})),splitLine:{lineStyle:{color:'#1e3055'}},axisLine:{lineStyle:{color:'#1e3055'}},splitArea:{show:false},name:{textStyle:{color:'#3d5270',fontSize:9}}},
+    series:[{type:'radar',data:[
+      {value:d.buy,name:'Buy Zone',itemStyle:{color:'#00e676'},lineStyle:{color:'#00e676',width:2},areaStyle:{color:'rgba(0,230,118,0.12)'}},
+      {value:d.monitor,name:'Monitor Zone',itemStyle:{color:'#ffe040'},lineStyle:{color:'#ffe040',width:1.5,type:'dashed'},areaStyle:{color:'rgba(255,224,64,0.06)'}},
+      {value:d.avoid,name:'Avoid Zone',itemStyle:{color:'#ff3d4a'},lineStyle:{color:'#ff3d4a',width:1.5,type:'dotted'},areaStyle:{color:'rgba(255,61,74,0.08)'}},
+    ]}]
+  });
+}
+
+/* ─── SHIPPING CHART ─── */
+function initShippingChart() {
+  const c = makeChart('chartShipping');
+  const d = SHIPPING_DATA[scenario];
+  const horizon = document.getElementById('horizonFilter').value;
+  const sliceLen = horizon==='yr1' ? 12 : d.length;
+  const lbl = OIL_LABELS.slice(0,sliceLen);
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11}},
+    grid:{top:10,left:60,right:15,bottom:20},
+    xAxis:{type:'category',data:lbl,axisLine:{lineStyle:{color:'#1e3055'}},axisTick:{show:false},axisLabel:{color:'#3d5270',fontSize:9}},
+    yAxis:{type:'value',name:'Index',nameTextStyle:{color:'#3d5270',fontSize:9},axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9}},
+    markLine:{data:[{yAxis:100,name:'Baseline',lineStyle:{color:'#3d5270',type:'dotted'}}]},
+    series:[
+      {name:'Shipping Cost Index',type:'line',smooth:true,symbol:'none',data:d.slice(0,sliceLen),lineStyle:{color:'#f5a623',width:2.5},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(245,166,35,0.2)'},{offset:1,color:'rgba(245,166,35,0)'}]}}},
+      {type:'line',name:'Pre-conflict (100)',smooth:false,symbol:'none',lineStyle:{color:'#3d5270',width:1,type:'dotted'},data:Array(sliceLen).fill(100)}
+    ]
+  });
+}
+
+/* ─── HEATMAP CHART ─── */
+function initHeatmapChart() {
+  const c = makeChart('chartHeatmap');
+  const raw = [];
+  HEATMAP_RAW.forEach((row,ri)=> row.forEach((val,ci)=> raw.push([ci,ri,val])));
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{formatter:p=>`<b>${HEATMAP_REGIONS[p.data[1]]}</b><br>Year ${p.data[0]+1}: Stress ${p.data[2].toFixed(1)}/10`,backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:10}},
+    grid:{top:10,left:100,right:20,bottom:55},
+    xAxis:{type:'category',data:HEATMAP_YEARS,splitArea:{show:true,areaStyle:{color:['rgba(255,255,255,0.02)','transparent']}},axisLabel:{color:'#7a91b3',fontSize:10},axisLine:{show:false}},
+    yAxis:{type:'category',data:HEATMAP_REGIONS,splitArea:{show:false},axisLabel:{color:'#7a91b3',fontSize:10,width:90},axisLine:{show:false}},
+    visualMap:{min:0,max:10,calculable:true,orient:'horizontal',left:'center',bottom:0,inRange:{color:['#111d33','#f5a623','#ff3d4a']},textStyle:{color:'#7a91b3',fontSize:9},text:['High Stress','Low'],formatter:v=>v.toFixed(1)},
+    series:[{type:'heatmap',data:raw,label:{show:true,formatter:p=>p.data[2].toFixed(1),color:'rgba(255,255,255,0.7)',fontSize:9},emphasis:{itemStyle:{shadowBlur:10,shadowColor:'rgba(245,166,35,0.5)'}}}]
+  });
+}
+
+/* ─── SPEND CHART ─── */
+function initSpendChart() {
+  const c = makeChart('chartSpend');
+  const mult = scenario==='pessimistic'?1.35:scenario==='optimistic'?0.7:1;
+  const def   = SPEND_DATA.defense.map(v=>Math.round(v*mult));
+  const eng   = SPEND_DATA.energy.map(v=>Math.round(v*(scenario==='pessimistic'?0.85:scenario==='optimistic'?1.4:1)));
+  const recon = SPEND_DATA.recon.map(v=>Math.round(v*(scenario==='pessimistic'?0.6:scenario==='optimistic'?1.6:1)));
+  c.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11},formatter:p=>{
+      let s=`<b>${p[0].axisValue}</b><br>`;
+      p.forEach(pp=>s+=`${pp.marker}${pp.seriesName}: $${pp.value}B<br>`);
+      return s;
+    }},
+    legend:{data:['Defense','Energy Investment','Reconstruction'],bottom:0,textStyle:{color:'#7a91b3',fontSize:9,fontFamily:"'IBM Plex Mono',monospace"}},
+    grid:{top:10,left:60,right:15,bottom:40},
+    xAxis:{type:'category',data:SPEND_LABELS,axisLine:{lineStyle:{color:'#1e3055'}},axisTick:{show:false},axisLabel:{color:'#7a91b3',fontSize:10}},
+    yAxis:{type:'value',axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9,formatter:v=>'$'+v+'B'},name:'$USD Billions',nameTextStyle:{color:'#3d5270',fontSize:9}},
+    series:[
+      {name:'Defense',type:'bar',stack:'total',data:def,itemStyle:{color:'#ff3d4a',borderRadius:0}},
+      {name:'Energy Investment',type:'bar',stack:'total',data:eng,itemStyle:{color:'#f5a623',borderRadius:0}},
+      {name:'Reconstruction',type:'bar',stack:'total',data:recon,itemStyle:{color:'#00e676',borderRadius:[2,2,0,0]}},
+    ]
+  });
+}
+
+/* ─── CONTINENTAL SUB-CHARTS ─── */
+function initContCharts() {
+  // Continental GDP
+  const c1 = makeChart('chartContGDP');
+  const d = GDP_DATA[scenario];
+  c1.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11}},
+    legend:{data:['Yr1','Yr2','Yr3'],bottom:0,textStyle:{color:'#7a91b3',fontSize:9}},
+    grid:{top:10,left:65,right:15,bottom:50},
+    xAxis:{type:'category',data:GDP_REGIONS,axisLine:{lineStyle:{color:'#1e3055'}},axisTick:{show:false},axisLabel:{color:'#3d5270',fontSize:8,interval:0,rotate:30}},
+    yAxis:{type:'value',axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9,formatter:v=>v+'%'}},
+    series:[
+      {name:'Yr1',type:'bar',data:d.yr1,itemStyle:{color:p=>d.yr1[p.dataIndex]<0?'#ff3d4a':'#00e676'}},
+      {name:'Yr2',type:'bar',data:d.yr2,itemStyle:{color:p=>d.yr2[p.dataIndex]<0?'rgba(255,61,74,0.55)':'rgba(0,230,118,0.55)'}},
+      {name:'Yr3',type:'bar',data:d.yr3,itemStyle:{color:p=>d.yr3[p.dataIndex]<0?'rgba(255,61,74,0.25)':'rgba(0,230,118,0.25)'}},
+    ]
+  });
+  // Regional inflation
+  const c2 = makeChart('chartContInflation');
+  const infByRegion = {
+    'N. America':[1.8,1.2,0.7,0.3], Europe:[3.4,2.6,1.5,0.7], 'Middle East':[5.8,4.9,3.6,2.1],
+    'E. Asia':[2.5,1.9,1.1,0.5], 'S. Asia':[4.5,3.8,2.7,1.4], Africa:[5.4,4.6,3.3,1.9],
+    'S. America':[2.8,2.1,1.3,0.6], Oceania:[1.5,1.0,0.5,0.2]
+  };
+  const infrYears = ['Yr1','Yr2','Yr3','Yr4'];
+  c2.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11}},
+    legend:{data:Object.keys(infByRegion),bottom:0,textStyle:{color:'#7a91b3',fontSize:8},type:'scroll'},
+    grid:{top:10,left:55,right:15,bottom:55},
+    xAxis:{type:'category',data:infrYears,axisLine:{lineStyle:{color:'#1e3055'}},axisLabel:{color:'#7a91b3',fontSize:10}},
+    yAxis:{type:'value',axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9,formatter:v=>'+'+v+'%'}},
+    series:Object.entries(infByRegion).map(([name,data],i)=>({name,type:'line',smooth:true,symbol:'circle',symbolSize:4,data,lineStyle:{color:REGION_COLORS[i],width:2},itemStyle:{color:REGION_COLORS[i]}}))
+  });
+}
+
+/* ─── RISK CHARTS ─── */
+function initRiskCharts() {
+  const c1 = makeChart('chartRisk');
+  c1.setOption({
+    ...ECTHEME,
+    tooltip:{formatter:p=>`<b>${p.data[3]}</b><br>Probability: ${p.data[0]}%<br>Impact: ${Math.abs(p.data[1])}/10<br>${p.data[1]<0?'🟢 Positive Scenario':'🔴 Negative Risk'}`,backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:10}},
+    xAxis:{type:'value',name:'Probability (%)',nameTextStyle:{color:'#3d5270',fontSize:9},axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9}},
+    yAxis:{type:'value',name:'Impact Severity (1–10)',nameTextStyle:{color:'#3d5270',fontSize:9},axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9},min:-6,max:11},
+    series:[{type:'scatter',data:RISK_BUBBLE.map(r=>[r.prob,r.impact,r.size,r.name]),symbolSize:d=>d[2],itemStyle:{color:d=>RISK_BUBBLE.find(r=>r.name===d.data[3]).color,opacity:0.75},label:{show:true,formatter:p=>p.data[3],position:'top',fontSize:8,color:'#7a91b3'}}]
+  });
+
+  const c2 = makeChart('chartRiskLine');
+  const d = RISK_LINE_DATA;
+  c2.setOption({
+    ...ECTHEME,
+    tooltip:{trigger:'axis',backgroundColor:'#0d1525',borderColor:'#1e3055',textStyle:{color:'#e8edf5',fontFamily:"'IBM Plex Mono',monospace",fontSize:11}},
+    legend:{data:['Baseline','Optimistic','Pessimistic'],bottom:0,textStyle:{color:'#7a91b3',fontSize:9}},
+    grid:{top:10,left:55,right:15,bottom:40},
+    xAxis:{type:'category',data:YEARS_10,axisLine:{lineStyle:{color:'#1e3055'}},axisLabel:{color:'#7a91b3',fontSize:10}},
+    yAxis:{type:'value',name:'Risk Index',nameTextStyle:{color:'#3d5270',fontSize:9},max:10,axisLine:{lineStyle:{color:'#1e3055'}},splitLine:{lineStyle:{color:'#111d33'}},axisLabel:{color:'#3d5270',fontSize:9}},
+    series:[
+      {name:'Baseline',type:'line',smooth:true,symbol:'none',data:d.baseline,lineStyle:{color:'#00d4ff',width:2.5},areaStyle:{color:'rgba(0,212,255,0.06)'}},
+      {name:'Optimistic',type:'line',smooth:true,symbol:'none',data:d.optimistic,lineStyle:{color:'#00e676',width:1.5,type:'dashed'}},
+      {name:'Pessimistic',type:'line',smooth:true,symbol:'none',data:d.pessimistic,lineStyle:{color:'#ff3d4a',width:1.5,type:'dashed'}},
+    ]
+  });
+}
+
+/* ─── BUILD MONTHLY GRID ─── */
+function buildMonthlyGrid() {
+  const g = document.getElementById('monthlyGrid');
+  MONTHLY_BREAKDOWN.forEach(m => {
+    const oilVal = parseFloat(m.oil.replace('$',''));
+    const oilColor = oilVal > 130 ? '#ff3d4a' : oilVal > 110 ? '#f5a623' : '#ffe040';
+    g.innerHTML += `
+    <div class="month-card">
+      <div class="month-label">${m.m}</div>
+      <div class="month-phase">${m.phase}</div>
+      <div class="month-metrics">
+        <div class="month-metric">
+          <div class="val" style="color:${oilColor}">${m.oil}</div>
+          <div class="lbl">Brent</div>
+        </div>
+        <div class="month-metric">
+          <div class="val" style="color:#ff3d4a">${m.cpi}</div>
+          <div class="lbl">CPI Add</div>
+        </div>
+        <div class="month-metric">
+          <div class="val" style="color:#ff3d4a">${m.gdp}</div>
+          <div class="lbl">GDP Chg</div>
+        </div>
+      </div>
+      <div class="month-desc">${m.desc}</div>
+    </div>`;
+  });
+}
+
+/* ─── BUILD CONTINENTAL TABLE ─── */
+function buildContinentalTable() {
+  const b = document.getElementById('continentalBody');
+  CONTINENTAL_ROWS.forEach(r => {
+    const badge = r.signal==='buy' ? `<span class="badge badge-buy">▲ Buy Zone</span>`
+                : r.signal==='avoid' ? `<span class="badge badge-avoid">▼ Avoid</span>`
+                : `<span class="badge badge-monitor">● Monitor</span>`;
+    const gdpColor = r.gdp.startsWith('+') ? '#00e676' : '#ff3d4a';
+    b.innerHTML += `<tr>
+      <td style="font-weight:600;color:var(--text-pri)">${r.region}</td>
+      <td style="color:${gdpColor};font-family:var(--mono)">${r.gdp}</td>
+      <td style="color:#ff3d4a;font-family:var(--mono)">${r.cpi}</td>
+      <td style="font-family:var(--mono);font-size:0.63rem">${r.energy}</td>
+      <td style="font-family:var(--mono);font-size:0.63rem">${r.food}</td>
+      <td style="font-family:var(--mono);font-size:0.63rem">${r.fx}</td>
+      <td style="font-family:var(--mono);font-size:0.63rem">${r.debt}</td>
+      <td style="font-family:var(--mono);font-size:0.63rem;color:var(--text-sec)">${r.recovery}</td>
+      <td>${badge}</td>
+    </tr>`;
+  });
+}
+
+/* ─── BUILD SECTOR TABLE ─── */
+function buildSectorTable() {
+  const b = document.getElementById('sectorBody');
+  SECTOR_ROWS.forEach(r => {
+    const badge12 = r.sig12==='buy' ? `<span class="badge badge-buy">▲ Buy</span>`
+                   : r.sig12==='avoid' ? `<span class="badge badge-avoid">▼ Avoid</span>`
+                   : `<span class="badge badge-monitor">● Monitor</span>`;
+    const badge3  = r.sig3==='buy' ? `<span class="badge badge-buy">▲ Buy</span>`
+                   : r.sig3==='avoid' ? `<span class="badge badge-avoid">▼ Avoid</span>`
+                   : `<span class="badge badge-monitor">● Monitor</span>`;
+    const ret12Color = r.ret12.startsWith('+') ? '#00e676' : '#ff3d4a';
+    const ret3Color  = r.ret3.startsWith('+') ? '#00e676' : '#ff3d4a';
+    b.innerHTML += `<tr>
+      <td style="font-weight:600;color:var(--text-pri);white-space:nowrap">${r.sector}</td>
+      <td>${badge12}</td>
+      <td>${badge3}</td>
+      <td style="color:${ret12Color};font-family:var(--mono);font-size:0.65rem">${r.ret12}</td>
+      <td style="color:${ret3Color};font-family:var(--mono);font-size:0.65rem">${r.ret3}</td>
+      <td style="font-family:var(--mono);font-size:0.62rem;color:var(--text-sec)">${r.driver}</td>
+      <td style="font-family:var(--mono);font-size:0.62rem;color:var(--text-dim)">${r.risk}</td>
+      <td style="font-family:var(--mono);font-size:0.62rem;color:var(--cyan)">${r.names}</td>
+    </tr>`;
+  });
+}
+
+/* ─── INIT ALL CHARTS ─── */
+function initAllCharts() {
+  initOilChart();
+  initGDPChart();
+  initInflationChart();
+  initRadarChart();
+  initShippingChart();
+  initHeatmapChart();
+  initSpendChart();
+  // Risk charts init when tab is opened
+  document.querySelector('[onclick="switchTab(\'tab-risks\')"]').addEventListener('click', ()=>{
+    setTimeout(initRiskCharts, 150);
+  });
+  document.querySelector('[onclick="switchTab(\'tab-continental\')"]').addEventListener('click', ()=>{
+    setTimeout(initContCharts, 150);
+  });
+}
+
+</script>
+</body>
+</html>
