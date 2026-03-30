@@ -646,13 +646,20 @@ main {
 <main>
 
 <!-- ALERT -->
-<div class="alert-banner">
-  <div class="alert-label">⚠ ESCALATION ALERT</div>
-  <div class="alert-text">
-    <strong>ACTIVE CONFLICT STATUS:</strong> Strait of Hormuz shipping disruptions confirmed · Brent crude +38% YTD ·
-    IAEA inspectors expelled · Gulf Coalition force mobilization underway · Probability of regional expansion: <strong>HIGH</strong>
+<<div class="alert-banner" id="alertBanner">
+  <div class="alert-label" id="alertLabel">⚠ LOADING</div>
+  <div class="alert-text" id="alertText">
+    <span style="color:var(--text-dim)">Fetching latest news…</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
+    <!-- Dot indicators — one per article -->
+    <div id="alertDots" style="display:flex;gap:5px;align-items:center"></div>
+    <!-- Source tag -->
+    <div id="alertSource" style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;
+      color:var(--text-dim);letter-spacing:0.08em;white-space:nowrap"></div>
   </div>
 </div>
+
 
 <!-- KPI CARDS -->
 <div class="section-label">Key Market Indicators — Scenario: <span id="scenarioLabel" style="color:var(--cyan);margin-left:0.25rem">Baseline</span></div>
@@ -1062,7 +1069,218 @@ main {
 
 <!-- ═══════════════════════════ JAVASCRIPT ═══════════════════════════ -->
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   LIVE NEWS ALERT BANNER
+   Sources : Reuters · BBC Middle East · Al Jazeera
+   Proxy   : rss2json.com (free, no key, 10K req/day)
+   Rotation: cycles through Iran-relevant articles every 8 seconds
+   Refresh : fetches fresh articles every 30 minutes
+   ═══════════════════════════════════════════════════════════════ */
 
+const NEWS_FEEDS = [
+  {
+    name: 'Reuters',
+    color: '#ff8c00',
+    url: 'https://feeds.reuters.com/reuters/topNews'
+  },
+  {
+    name: 'BBC Mid-East',
+    color: '#bb1919',
+    url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml'
+  },
+  {
+    name: 'Al Jazeera',
+    color: '#c8a951',
+    url: 'https://www.aljazeera.com/xml/rss/all.xml'
+  },
+  {
+    name: 'AP News',
+    color: '#e00',
+    url: 'https://rsshub.app/apnews/topics/ap-top-news'
+  }
+];
+
+// Keywords that make an article relevant to the Iran conflict
+const IRAN_KEYWORDS = [
+  'iran', 'iranian', 'tehran', 'hormuz', 'irgc', 'iaea',
+  'nuclear', 'persian gulf', 'middle east', 'sanctions',
+  'hezbollah', 'houthi', 'israel strike', 'gulf war',
+  'oil price', 'crude oil', 'brent', 'opec', 'strait'
+];
+
+const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
+
+let alertArticles  = [];   // filtered relevant articles
+let alertIndex     = 0;    // currently displayed article
+let alertRotTimer  = null; // rotation interval handle
+let alertFetchTimer= null; // 30-min refresh handle
+
+/* ── BOOT: fetch on load, then every 30 minutes ── */
+async function initAlertBanner() {
+  await fetchNewsArticles();
+  clearInterval(alertFetchTimer);
+  alertFetchTimer = setInterval(fetchNewsArticles, 30 * 60 * 1000);
+}
+
+/* ── FETCH & FILTER all feeds ── */
+async function fetchNewsArticles() {
+  const all = [];
+
+  // Fetch all feeds in parallel
+  const results = await Promise.allSettled(
+    NEWS_FEEDS.map(feed =>
+      fetch(`${RSS2JSON}${encodeURIComponent(feed.url)}&count=20`)
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(data => ({ feed, items: data.items || [] }))
+    )
+  );
+
+  results.forEach(result => {
+    if (result.status !== 'fulfilled') return;
+    const { feed, items } = result.value;
+    items.forEach(item => {
+      const text = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
+      const relevant = IRAN_KEYWORDS.some(kw => text.includes(kw));
+      if (!relevant) return;
+      all.push({
+        title:     item.title      || 'No title',
+        link:      item.link       || item.guid || '#',
+        published: item.pubDate    || '',
+        source:    feed.name,
+        color:     feed.color,
+        snippet:   stripHtml(item.description || '').slice(0, 160)
+      });
+    });
+  });
+
+  // Sort newest first
+  all.sort((a, b) => new Date(b.published) - new Date(a.published));
+
+  // Deduplicate by title similarity
+  const seen = new Set();
+  const deduped = all.filter(a => {
+    const key = a.title.slice(0, 40).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (deduped.length === 0) {
+    // No relevant articles found — show fallback
+    setAlertFallback();
+    return;
+  }
+
+  alertArticles = deduped.slice(0, 15); // keep top 15
+  alertIndex = 0;
+  renderAlert(alertIndex);
+  startAlertRotation();
+  buildAlertDots();
+}
+
+/* ── RENDER a single article into the banner ── */
+function renderAlert(idx) {
+  if (!alertArticles.length) return;
+  const a = alertArticles[idx];
+
+  const label  = document.getElementById('alertLabel');
+  const text   = document.getElementById('alertText');
+  const source = document.getElementById('alertSource');
+
+  if (label) {
+    label.textContent = '⚠ LIVE NEWS';
+    label.style.color = a.color;
+  }
+
+  if (text) {
+    const age = a.published ? newsTimeAgo(a.published) : '';
+    text.innerHTML =
+      `<strong style="color:var(--text-pri)">${escHtml(a.title)}</strong>` +
+      (a.snippet ? ` <span style="color:var(--text-dim);font-size:0.92em">— ${escHtml(a.snippet)}…</span>` : '') +
+      ` &nbsp;<a href="${a.link}" target="_blank" rel="noopener"
+          style="color:${a.color};font-family:'IBM Plex Mono',monospace;
+          font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;
+          text-decoration:none;border-bottom:1px solid ${a.color};
+          white-space:nowrap">Read Full Article →</a>` +
+      (age ? ` <span style="color:var(--text-dim);font-family:'IBM Plex Mono',monospace;
+          font-size:0.6rem">&nbsp;${age}</span>` : '');
+  }
+
+  if (source) {
+    source.textContent = a.source;
+    source.style.color = a.color;
+  }
+
+  updateAlertDots(idx);
+}
+
+/* ── ROTATION: advance every 8 seconds ── */
+function startAlertRotation() {
+  clearInterval(alertRotTimer);
+  alertRotTimer = setInterval(() => {
+    alertIndex = (alertIndex + 1) % alertArticles.length;
+    renderAlert(alertIndex);
+  }, 8000);
+}
+
+/* ── DOT INDICATORS ── */
+function buildAlertDots() {
+  const dots = document.getElementById('alertDots');
+  if (!dots) return;
+  dots.innerHTML = alertArticles.map((_, i) =>
+    `<div id="adot-${i}" onclick="jumpAlert(${i})"
+      style="width:6px;height:6px;border-radius:50%;cursor:pointer;
+      transition:all 0.25s;background:${i===0?'var(--amber)':'var(--border)'}"></div>`
+  ).join('');
+}
+
+function updateAlertDots(idx) {
+  alertArticles.forEach((_, i) => {
+    const d = document.getElementById(`adot-${i}`);
+    if (d) d.style.background = i === idx ? 'var(--amber)' : 'var(--border)';
+  });
+}
+
+function jumpAlert(idx) {
+  alertIndex = idx;
+  renderAlert(idx);
+  // Reset rotation timer so it doesn't jump immediately after manual click
+  startAlertRotation();
+}
+
+/* ── FALLBACK when no articles match ── */
+function setAlertFallback() {
+  const label = document.getElementById('alertLabel');
+  const text  = document.getElementById('alertText');
+  if (label) { label.textContent = '⚠ ESCALATION ALERT'; label.style.color = ''; }
+  if (text)  {
+    text.innerHTML =
+      '<strong>ACTIVE CONFLICT STATUS:</strong> Strait of Hormuz shipping disruptions confirmed · ' +
+      'Brent crude +38% YTD · IAEA inspectors expelled · Gulf Coalition force mobilization underway · ' +
+      'Probability of regional expansion: <strong>HIGH</strong>';
+  }
+}
+
+/* ── HELPERS ── */
+function stripHtml(html) {
+  return html.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function newsTimeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+  
 /* ─── DATA LAYER ─── */
 
 const MONTHS_12 = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12'];
@@ -1198,6 +1416,7 @@ let allCharts = {};
 document.addEventListener('DOMContentLoaded', () => {
   updateTimestamp();
   setInterval(updateTimestamp, 60000);
+  initAlertBanner();
 
   // Delay table + chart builds slightly to ensure DOM is fully ready
   // This fixes blank table rows on CDN-served deployments (Vercel, Netlify)
