@@ -666,6 +666,27 @@ main {
   <div class="header-brand">
     <div class="logo">DELAX | GEO-RISK</div>
     <div class="subtitle">Iran War · Global Economic Impact · 2026–2036</div>
+   <header>
+  <div class="header-left">
+    <div style="display:flex; align-items:baseline; gap:15px;">
+      <div style="font-family:'Bebas Neue',sans-serif; font-size:2.5rem; letter-spacing:2px; color:var(--text-pri)">
+        IRAN <span style="color:var(--amber)">WAR</span>
+      </div>
+      <div style="font-family:var(--mono); font-size:0.75rem; color:var(--text-dim); border-left:1px solid var(--border); padding-left:15px;">
+        10-YEAR STRATEGIC FORECAST
+      </div>
+    </div>
+    
+    <div class="theater-selector-container" style="margin-top: 15px;">
+      <label style="font-family: var(--mono); font-size: 0.65rem; color: var(--cyan); text-transform: uppercase;">Active Geopolitical Theater</label>
+      <select id="conflict-toggle" class="custom-select">
+          <option value="ME" data-symbols="USO,LMT">MIDDLE EAST (Energy/Defense)</option>
+          <option value="AP" data-symbols="TSM,JPY=X">ASIA-PACIFIC (Semiconductors/FX)</option>
+          <option value="EU" data-symbols="VGK,EUR=X">EUROPE (EU Equities/Euro)</option>
+      </select>
+    </div>
+
+  </div>
   </div>
   <div class="header-meta">
     <div class="live-badge"><div class="live-dot"></div>LIVE MODEL</div>
@@ -694,6 +715,17 @@ main {
 
 
 <!-- KPI CARDS -->
+ <div class="grid-container">
+    <div class="card" style="grid-column: span 1;">
+        <div class="kpi-label" id="live-label-1">TRACKER A</div>
+        <div class="kpi-value" id="live-price-1" style="color: var(--cyan);">--</div>
+    </div>
+    <div class="card" style="grid-column: span 1;">
+        <div class="kpi-label" id="live-label-2">TRACKER B</div>
+        <div class="kpi-value" id="live-price-2" style="color: var(--cyan);">--</div>
+    </div>
+    
+    </div>
 <div class="section-label">Key Market Indicators — Scenario: <span id="scenarioLabel" style="color:var(--cyan);margin-left:0.25rem">Baseline</span></div>
 <div class="kpi-grid">
   <div class="kpi-card up">
@@ -1013,6 +1045,12 @@ main {
 </div>
 
 <!-- ═══ TAB: RISKS ═══ -->
+ <aside class="sidebar">
+    <div class="panel-title">LIVE INTELLIGENCE FEED</div>
+    <div id="geopolitical-feed" style="max-height: 600px; overflow-y: auto; padding-right: 10px;">
+        <div class="loader">SCANNING GLOBAL CHANNELS...</div>
+    </div>
+</aside>
 <div id="tab-risks" class="tab-content">
   <div class="section-label">Major Risk Factors &amp; Black-Swan Triggers</div>
   <div class="two-col">
@@ -2009,8 +2047,10 @@ function initAllCharts() {
   initSpendChart();
   // Continental and Risk charts are initialized on first tab open via switchTab()
 }
-
 </script>
+ <script src="dashboard-controller.js"></script>
+</body>
+</html>
 </body>
 <script src="dashboard-controller.js"></script>
 </html>
