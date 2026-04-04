@@ -253,4 +253,4 @@ const DashboardLive = {
      3. Uncomment the block below and push to GitHub
    ══════════════════════════════════════════════════════════ */
 
-// document.addEventListener('DOMContentLoaded', () => DashboardLive.init());
+document.addEventListener('DOMContentLoaded', () => DashboardLive.init());
