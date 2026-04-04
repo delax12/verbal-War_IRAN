@@ -30,11 +30,142 @@
   --purple:     #b388ff;
   --text-pri:   #e8edf5;
   --text-sec:   #7a91b3;
-  --text-dim:   #3d5270;
+  --text-dim:   #5a7299;
   --mono:       'IBM Plex Mono', monospace;
   --sans:       'IBM Plex Sans', sans-serif;
   --display:    'Bebas Neue', sans-serif;
 }
+
+/* ── CLASSIC / LIGHT THEME ── */
+[data-theme="classic"] {
+  --bg-deep:    #f0f3f8;
+  --bg-card:    #ffffff;
+  --bg-panel:   #f7f9fc;
+  --border:     #d0d9e8;
+  --border-dim: #e2e8f2;
+  --amber:      #c47e10;
+  --amber-dim:  #a06000;
+  --cyan:       #0070b8;
+  --cyan-dim:   #005a96;
+  --green:      #16803c;
+  --red:        #c41a27;
+  --yellow:     #b45309;
+  --purple:     #6d28d9;
+  --text-pri:   #0f1923;
+  --text-sec:   #374a63;
+  --text-dim:   #6b7fa0;
+}
+[data-theme="classic"] body::before { display: none; }
+[data-theme="classic"] .header {
+  background: rgba(240,243,248,0.97);
+  border-bottom-color: #d0d9e8;
+}
+[data-theme="classic"] .kpi-card.up   .kpi-value { color: #c41a27; }
+[data-theme="classic"] .kpi-card.down .kpi-value { color: #16803c; }
+
+/* ── THEME TOGGLE BUTTON ── */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-sec);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  padding: 0.4rem 0.75rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.theme-toggle:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* ── PRICE TICKER STRIP ── */
+.ticker-strip {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-dim);
+  overflow: hidden;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.ticker-strip::before,
+.ticker-strip::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 60px;
+  z-index: 2;
+  pointer-events: none;
+}
+.ticker-strip::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-card), transparent);
+}
+.ticker-strip::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg-card), transparent);
+}
+.ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  animation: tickerScroll 40s linear infinite;
+  white-space: nowrap;
+  padding-left: 100%;
+}
+.ticker-track:hover { animation-play-state: paused; }
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.5rem;
+  border-right: 1px solid var(--border-dim);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+}
+.ticker-symbol { color: var(--text-sec); font-weight: 600; }
+.ticker-price  { color: var(--text-pri); }
+.ticker-change.pos { color: var(--green); }
+.ticker-change.neg { color: var(--red); }
+.ticker-change.flat{ color: var(--text-dim); }
+
+/* ── JARGON TOOLTIP ── */
+[data-jargon] {
+  border-bottom: 1px dotted var(--text-dim);
+  cursor: help;
+  position: relative;
+}
+.jargon-tip {
+  position: fixed;
+  z-index: 9000;
+  max-width: 280px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  padding: 0.65rem 0.9rem;
+  border-radius: 2px;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--text-sec);
+  line-height: 1.55;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.jargon-tip.visible { opacity: 1; }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -638,9 +769,20 @@ main {
   <div class="header-meta">
     <div class="live-badge"><div class="live-dot"></div>LIVE MODEL</div>
     <div class="timestamp" id="ts">—</div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Switch between Cyberpunk and Classic theme">
+      <span id="themeIcon">☀</span>
+      <span id="themeLabel">CLASSIC</span>
+    </button>
     <button class="refresh-btn" id="refreshBtn" onclick="doRefresh()">↺ Refresh Data</button>
   </div>
 </header>
+
+<!-- ── LIVE PRICE TICKER STRIP ── -->
+<div class="ticker-strip" id="tickerStrip">
+  <div class="ticker-track" id="tickerTrack">
+    <!-- Populated by JS — duplicated for seamless loop -->
+  </div>
+</div>
 
 <!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
 <main>
@@ -652,37 +794,34 @@ main {
     <span style="color:var(--text-dim)">Fetching latest news…</span>
   </div>
   <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
-    <!-- Dot indicators — one per article -->
     <div id="alertDots" style="display:flex;gap:5px;align-items:center"></div>
-    <!-- Source tag -->
     <div id="alertSource" style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;
       color:var(--text-dim);letter-spacing:0.08em;white-space:nowrap"></div>
   </div>
 </div>
 
-
 <!-- KPI CARDS -->
 <div class="section-label">Key Market Indicators — Scenario: <span id="scenarioLabel" style="color:var(--cyan);margin-left:0.25rem">Baseline</span></div>
 <div class="kpi-grid">
   <div class="kpi-card up">
-    <div class="kpi-label">Brent Crude (Projected Peak)</div>
+    <div class="kpi-label"><span data-jargon="Brent Crude">Brent Crude</span> (Projected Peak)</div>
     <div class="kpi-value" id="kpiOil">$148</div>
     <div class="kpi-delta">Pre-conflict: $78 · <span>+89.7% shock</span></div>
   </div>
   <div class="kpi-card up">
-    <div class="kpi-label">Global CPI Impact (Yr 1)</div>
+    <div class="kpi-label">Global <span data-jargon="CPI">CPI</span> Impact (Yr 1)</div>
     <div class="kpi-value" id="kpiCPI">+3.8%</div>
     <div class="kpi-delta">Baseline addition to existing inflation · <span>Stagflation Risk: HIGH</span></div>
   </div>
   <div class="kpi-card warn">
-    <div class="kpi-label">Global GDP Loss (Yr 1)</div>
+    <div class="kpi-label">Global <span data-jargon="GDP">GDP</span> Loss (Yr 1)</div>
     <div class="kpi-value" id="kpiGDP">−1.9%</div>
     <div class="kpi-delta">Historical ref: 2003 Iraq = −0.5% · <span>3.8× more severe</span></div>
   </div>
   <div class="kpi-card up">
     <div class="kpi-label">Shipping Cost Index</div>
     <div class="kpi-value" id="kpiShip">+310%</div>
-    <div class="kpi-delta">Suez/Hormuz rerouting + insurance surge</div>
+    <div class="kpi-delta"><span data-jargon="Suez">Suez</span>/<span data-jargon="Hormuz">Hormuz</span> rerouting + insurance surge</div>
   </div>
   <div class="kpi-card up">
     <div class="kpi-label">Global Defense Spend ΔYr1</div>
@@ -690,12 +829,12 @@ main {
     <div class="kpi-delta">NATO, Gulf states, Israel, India emergency budgets</div>
   </div>
   <div class="kpi-card down">
-    <div class="kpi-label">Food Price Index (FAO)</div>
+    <div class="kpi-label">Food Price Index (<span data-jargon="FAO">FAO</span>)</div>
     <div class="kpi-value" id="kpiFAO">+27%</div>
     <div class="kpi-delta">Fertilizer + fuel input cost driven · <span>N. Africa exposure critical</span></div>
   </div>
   <div class="kpi-card info">
-    <div class="kpi-label">USD/EM FX Pressure</div>
+    <div class="kpi-label"><span data-jargon="USD">USD</span>/<span data-jargon="EM FX">EM FX</span> Pressure</div>
     <div class="kpi-value" id="kpiFX">−14%</div>
     <div class="kpi-delta">EM currencies vs USD basket · Flight-to-safety inflows</div>
   </div>
@@ -1421,25 +1560,24 @@ let allCharts = {};
 
 /* ─── INIT ─── */
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();           // ← restore saved theme before anything paints
   updateTimestamp();
   setInterval(updateTimestamp, 60000);
   initAlertBanner();
+  initTickerStrip();     // ← live price ticker
+  initJargonTooltips();  // ← hover definitions
 
   // Delay table + chart builds slightly to ensure DOM is fully ready
-  // This fixes blank table rows on CDN-served deployments (Vercel, Netlify)
   setTimeout(() => {
     buildMonthlyGrid();
     buildContinentalTable();
     buildSectorTable();
     initAllCharts();
 
-    // Auto-fetch live EIA data on load if key is set
-    if (EIA_API_KEY) {
-      setTimeout(() => doRefresh(), 1200);
-    }
+    // Auto-fetch live EIA data via secure proxy
+    doRefresh();
   }, 300);
 
-  // Daily auto-refresh at midnight local
   scheduleAutoRefresh();
 });
 
@@ -1467,13 +1605,12 @@ function scheduleAutoRefresh() {
 let liveBrentPrice = null;
 let liveDataDate   = null;
 
-/* ════════════════════════════════════════════════════════════════
-   ▼▼▼  PASTE YOUR FREE EIA API KEY ON THE LINE BELOW  ▼▼▼
-   Get one at: https://www.eia.gov/opendata/
-   It arrives by email instantly — no credit card required.
-   Replace the empty string '' with your key, e.g. 'a1b2c3d4e5f6...'
-   ════════════════════════════════════════════════════════════════ */
-const EIA_API_KEY = 'sIo3aad4vDn7xjOsDkfn7RRY3RrmgpFCHSbsLkPv';   // ← YOUR KEY GOES HERE
+/*
+ * EIA API KEY IS NOW SECURE.
+ * The key lives in Vercel → Settings → Environment Variables as EIA_API_KEY.
+ * The browser calls /api/eia-oil (our serverless proxy), never EIA directly.
+ * See: /api/eia-oil.js for the full proxy implementation.
+ */
 
 /* ─── MAIN REFRESH ─── */
 async function doRefresh() {
@@ -1481,11 +1618,7 @@ async function doRefresh() {
   btn.classList.add('spinning');
   btn.textContent = '↻ Fetching…';
 
-  if (EIA_API_KEY) {
-    await fetchEIABrent(EIA_API_KEY);
-  } else {
-    applyModelJitter();
-  }
+  await fetchEIABrent();
 
   updateTimestamp();
   updateCharts();
@@ -1493,70 +1626,58 @@ async function doRefresh() {
   btn.textContent = '↺ Refresh Data';
 }
 
-/* ─── EIA BRENT FETCH ─── */
-async function fetchEIABrent(apiKey) {
-  /*
-   * EIA v2 API — Petroleum Spot Prices
-   * Series: RBRTE = Europe Brent Spot Price FOB ($/bbl, daily)
-   * Endpoint: /v2/petroleum/pri/spt/data/
-   * Docs: https://www.eia.gov/opendata/browser/petroleum/pri/spt
-   */
-  const url =
-    `https://api.eia.gov/v2/petroleum/pri/spt/data/` +
-    `?api_key=${encodeURIComponent(apiKey)}` +
-    `&frequency=daily` +
-    `&data[0]=value` +
-    `&facets[series][]=RBRTE` +
-    `&sort[0][column]=period` +
-    `&sort[0][direction]=desc` +
-    `&length=30`;           // fetch last 30 days so we can show recent trend
-
+/* ─── EIA BRENT — calls our secure /api/eia-oil proxy ─── */
+async function fetchEIABrent() {
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`EIA returned HTTP ${res.status}`);
-    const json = await res.json();
+    const res = await fetch('/api/eia-oil');
 
-    const rows = json?.response?.data;
-    if (!rows || rows.length === 0) throw new Error('No data rows returned');
+    // If proxy isn't deployed yet (local dev / no serverless), fall back gracefully
+    if (res.status === 404) {
+      applyModelJitter();
+      showToast('ℹ /api/eia-oil not found — using model estimate. Deploy api/eia-oil.js to Vercel.', true);
+      return;
+    }
 
-    // Most-recent trading day
-    const latest = rows[0];
-    liveBrentPrice = parseFloat(latest.value);
-    liveDataDate   = latest.period;   // format: "YYYY-MM-DD"
+    if (!res.ok) throw new Error(`Proxy returned HTTP ${res.status}`);
 
-    if (isNaN(liveBrentPrice)) throw new Error('Price value is not a number');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    liveBrentPrice = data.price;
+    liveDataDate   = data.date;
 
     // ── Re-anchor the oil forecast series to the live price ──
-    // Conflict premium multiplier: live price vs our pre-conflict anchor ($78)
-    // The model's M1 slot gets the live price; subsequent months scale from there.
-    const premiumRatio = liveBrentPrice / 78;   // e.g. 148/78 = 1.897
-    OIL_DATA.baseline    = OIL_DATA.baseline.map((v,i)    => i===0 ? liveBrentPrice : Math.round(v * (premiumRatio / (OIL_DATA.baseline[0]/78))));
-    OIL_DATA.optimistic  = OIL_DATA.optimistic.map((v,i)  => i===0 ? Math.round(liveBrentPrice * 0.76)  : v);
-    OIL_DATA.pessimistic = OIL_DATA.pessimistic.map((v,i) => i===0 ? Math.round(liveBrentPrice * 1.04)  : v);
+    const premiumRatio = liveBrentPrice / 78;
+    const baseAnchor   = OIL_DATA.baseline[0] / 78;
+    OIL_DATA.baseline    = OIL_DATA.baseline.map((v, i) =>
+      i === 0 ? liveBrentPrice : Math.round(v * (premiumRatio / baseAnchor)));
+    OIL_DATA.optimistic  = OIL_DATA.optimistic.map((v, i) =>
+      i === 0 ? Math.round(liveBrentPrice * 0.76) : v);
+    OIL_DATA.pessimistic = OIL_DATA.pessimistic.map((v, i) =>
+      i === 0 ? Math.round(liveBrentPrice * 1.04) : v);
 
-    // Update the KPI oil card with the live price
+    // ── Update KPI oil card ──
     const oilKPI = document.getElementById('kpiOil');
     if (oilKPI) {
       oilKPI.textContent = `$${Math.round(liveBrentPrice)}`;
-      oilKPI.title = `Live EIA Brent spot price as of ${liveDataDate}`;
+      oilKPI.title = `Live EIA Brent as of ${liveDataDate}`;
     }
 
-    // Update the live badge label to show data date
+    // ── Update live badge ──
     const liveEl = document.querySelector('.live-badge');
     if (liveEl) liveEl.title = `EIA data as of ${liveDataDate}`;
 
-    showToast(`✓ EIA Live: Brent = $${liveBrentPrice.toFixed(2)}/bbl as of ${liveDataDate}`);
+    // ── Also update the Brent ticker item if present ──
+    updateTickerItem('BRENT', liveBrentPrice, data.trend7d);
+
+    const trend = data.trend7d >= 0
+      ? `▲ ${data.trend7d}% (7d)` : `▼ ${Math.abs(data.trend7d)}% (7d)`;
+    showToast(`✓ EIA Live: Brent = $${liveBrentPrice.toFixed(2)}/bbl · ${trend} · ${liveDataDate}`);
 
   } catch (err) {
-    console.warn('EIA fetch failed:', err.message);
-    // Graceful fallback — run model jitter so charts still update
+    console.warn('EIA proxy fetch failed:', err.message);
     applyModelJitter();
-
-    const errMsg = err.message.includes('401') || err.message.includes('403')
-      ? '✗ Invalid API key — check your key at eia.gov/opendata'
-      : `✗ EIA fetch error: ${err.message} — using model estimate`;
-
-    showToast(errMsg, true);
+    showToast(`⚠ EIA error: ${err.message} — model estimate in use`, true);
   }
 }
 
@@ -1971,6 +2092,188 @@ function buildSectorTable() {
       <td style="font-family:var(--mono);font-size:0.62rem;color:var(--cyan)">${r.names}</td>
     </tr>`;
   });
+}
+
+/* ═══════════════════════════════════════════════════════
+   THEME TOGGLE — Cyberpunk (dark) ↔ Classic (light)
+   ═══════════════════════════════════════════════════════ */
+
+function toggleTheme() {
+  const current = document.body.getAttribute('data-theme') || 'cyberpunk';
+  const next    = current === 'classic' ? 'cyberpunk' : 'classic';
+  applyTheme(next);
+  localStorage.setItem('delax-theme', next);
+}
+
+function applyTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  const icon  = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
+  if (theme === 'classic') {
+    if (icon)  icon.textContent  = '🌙';
+    if (label) label.textContent = 'DARK';
+  } else {
+    if (icon)  icon.textContent  = '☀';
+    if (label) label.textContent = 'CLASSIC';
+  }
+  // Re-render charts so ECharts picks up new background
+  setTimeout(() => {
+    Object.values(allCharts).forEach(c => { try { c.resize(); } catch(e){} });
+  }, 50);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('delax-theme') || 'cyberpunk';
+  applyTheme(saved);
+}
+
+/* ═══════════════════════════════════════════════════════
+   LIVE PRICE TICKER STRIP
+   Source: static seed prices + EIA Brent when available
+   Simulates intraday movement with micro-jitter
+   ═══════════════════════════════════════════════════════ */
+
+// Seed prices — updated by EIA fetch for BRENT
+const TICKER_SEEDS = [
+  { id: 'BRENT',  label: 'BRENT',   price: 82.40, unit: '$/bbl', type: 'commodity' },
+  { id: 'GOLD',   label: 'GOLD',    price: 2318,  unit: '$/oz',  type: 'commodity' },
+  { id: 'XOM',    label: 'XOM',     price: 114.82,unit: '$',     type: 'equity'    },
+  { id: 'LMT',    label: 'LMT',     price: 462.10,unit: '$',     type: 'equity'    },
+  { id: 'RTX',    label: 'RTX',     price: 101.55,unit: '$',     type: 'equity'    },
+  { id: 'DAL',    label: 'DAL',     price: 44.21, unit: '$',     type: 'equity'    },
+  { id: 'GLD',    label: 'GLD ETF', price: 213.40,unit: '$',     type: 'etf'       },
+  { id: 'DXY',    label: 'USD IDX', price: 104.82,unit: '',      type: 'fx'        },
+  { id: 'NATGAS', label: 'NAT GAS', price: 2.81,  unit: '$/MMBtu',type:'commodity' },
+];
+
+let tickerData = TICKER_SEEDS.map(t => ({ ...t, prevPrice: t.price }));
+let tickerInterval = null;
+
+function initTickerStrip() {
+  renderTicker();
+  // Micro-jitter every 8 seconds to simulate live movement
+  tickerInterval = setInterval(jitterTicker, 8000);
+}
+
+function jitterTicker() {
+  tickerData = tickerData.map(t => {
+    const pct   = (Math.random() - 0.499) * 0.008; // ±0.4% per tick
+    const newPrice = parseFloat((t.price * (1 + pct)).toFixed(
+      t.price < 10 ? 3 : t.price < 100 ? 2 : 2
+    ));
+    return { ...t, prevPrice: t.price, price: newPrice };
+  });
+  renderTicker();
+}
+
+function updateTickerItem(id, newPrice, trend7d) {
+  const item = tickerData.find(t => t.id === id);
+  if (!item) return;
+  item.prevPrice = item.price;
+  item.price     = newPrice;
+  renderTicker();
+}
+
+function renderTicker() {
+  const track = document.getElementById('tickerTrack');
+  if (!track) return;
+
+  const items = tickerData.map(t => {
+    const delta    = t.price - t.prevPrice;
+    const deltaPct = ((delta / t.prevPrice) * 100).toFixed(2);
+    const dir      = delta > 0.001 ? 'pos' : delta < -0.001 ? 'neg' : 'flat';
+    const arrow    = dir === 'pos' ? '▲' : dir === 'neg' ? '▼' : '—';
+    const priceStr = t.price < 10
+      ? t.price.toFixed(3)
+      : t.price.toFixed(2);
+    return `<div class="ticker-item">
+      <span class="ticker-symbol">${t.label}</span>
+      <span class="ticker-price">${t.unit && t.unit.startsWith('$') ? t.unit : ''}${priceStr}${t.unit && !t.unit.startsWith('$') ? ' '+t.unit : ''}</span>
+      <span class="ticker-change ${dir}">${arrow} ${Math.abs(deltaPct)}%</span>
+    </div>`;
+  }).join('');
+
+  // Duplicate for seamless infinite scroll
+  track.innerHTML = items + items;
+}
+
+/* ═══════════════════════════════════════════════════════
+   JARGON TOOLTIP SYSTEM
+   Hover over any element with data-jargon="Term" to see
+   a plain-English explanation in a floating tooltip.
+   ═══════════════════════════════════════════════════════ */
+
+const JARGON_DICT = {
+  'Brent Crude':
+    'The international benchmark price for oil, set in the North Sea. When it rises, fuel and transport costs rise globally.',
+  'CPI':
+    'Consumer Price Index — measures how much everyday goods cost. A rising CPI means your money buys less (inflation).',
+  'GDP':
+    'Gross Domestic Product — the total value of everything a country produces. Negative GDP = economic contraction (recession).',
+  'Suez':
+    'The Suez Canal connects the Mediterranean and Red Sea. Roughly 12% of global trade passes through it daily.',
+  'Hormuz':
+    'The Strait of Hormuz is a narrow waterway between Iran and Oman. About 20% of the world\'s oil supply passes through it every day.',
+  'FAO':
+    'Food and Agriculture Organization of the UN. Their Food Price Index tracks global prices for cereals, meat, dairy, and oils.',
+  'USD':
+    'United States Dollar — the world\'s primary reserve currency. In times of conflict, investors rush to hold USD as a "safe haven."',
+  'EM FX':
+    'Emerging Market Foreign Exchange — currencies of developing economies like Turkey, Brazil, India, and Egypt. These often weaken sharply during global crises.',
+  'SPR':
+    'Strategic Petroleum Reserve — the US government\'s emergency oil stockpile, stored in underground salt caverns in Texas and Louisiana.',
+  'Stagflation':
+    'The worst economic combination: high inflation AND slow (or negative) economic growth at the same time. Very hard for central banks to fix.',
+  'Sovereign Debt':
+    'Money borrowed by a national government by issuing bonds. High debt levels increase the risk of default or currency collapse.',
+  'IRGC':
+    'Islamic Revolutionary Guard Corps — Iran\'s elite military, intelligence, and economic force, commanding an estimated 20% of Iran\'s economy.',
+  'Basis Points':
+    'One basis point = 0.01%. Central banks use this unit for interest rate changes. A "25 basis point hike" means rates went up by 0.25%.',
+  'NATO':
+    'North Atlantic Treaty Organization — a military alliance of 32 countries. An attack on one member is treated as an attack on all (Article 5).',
+};
+
+function initJargonTooltips() {
+  // Create the single floating tooltip element
+  const tip = document.createElement('div');
+  tip.className = 'jargon-tip';
+  tip.id = 'jargonTip';
+  document.body.appendChild(tip);
+
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('[data-jargon]');
+    if (!el) return;
+    const term = el.getAttribute('data-jargon');
+    const def  = JARGON_DICT[term];
+    if (!def) return;
+
+    tip.innerHTML = `<strong style="color:var(--cyan);font-family:var(--mono);
+      font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;
+      display:block;margin-bottom:0.35rem">${term}</strong>${def}`;
+    tip.classList.add('visible');
+    positionTip(e);
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (tip.classList.contains('visible')) positionTip(e);
+  });
+
+  document.addEventListener('mouseout', e => {
+    if (!e.target.closest('[data-jargon]')) return;
+    tip.classList.remove('visible');
+  });
+}
+
+function positionTip(e) {
+  const tip = document.getElementById('jargonTip');
+  if (!tip) return;
+  const x = e.clientX + 14;
+  const y = e.clientY - 8;
+  const vw = window.innerWidth;
+  const th = tip.offsetHeight;
+  tip.style.left = (x + 290 > vw ? e.clientX - 300 : x) + 'px';
+  tip.style.top  = Math.max(8, y - (y + th > window.innerHeight ? th + 20 : 0)) + 'px';
 }
 
 /* ─── INIT ALL CHARTS ─── */
