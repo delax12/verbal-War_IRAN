@@ -1,1 +1,0 @@
-const EIA_API_KEY 'sIo3aad4vDn7xjOsDkfn7RRY3RrmgpFCHSbsLkPv'
