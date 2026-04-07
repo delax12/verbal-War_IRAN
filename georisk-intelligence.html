@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DELAX INTEL | Global Risk Intelligence Platform v1.0</title>
+
+<!-- ══════════════════════════════════════
+     DEPENDENCIES
+     Globe.gl (Three.js bundled) · ECharts 5
+     ══════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.30.0/dist/globe.gl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Bebas+Neue&family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+
+<style>
+/* ════════════════════════════════════════════════════
+   BLOOMBERG × CYBERPUNK DESIGN SYSTEM
+   ════════════════════════════════════════════════════ */
+:root {
+  --bg0:       #010608;
+  --bg1:       #040d14;
+  --bg2:       #071520;
+  --bg3:       #0a1d2b;
+  --bg-panel:  #060f1a;
+  --border:    #0e2438;
+  --border-hi: #143348;
+
+  --cyan:      #00d4ff;
+  --cyan-dim:  #008fad;
+  --cyan-glow: rgba(0,212,255,.15);
+  --amber:     #f5a623;
+  --amber-dim: #a86c0f;
+  --amber-glow:rgba(245,166,35,.15);
+  --green:     #00e676;
+  --green-dim: #009e51;
+  --red:       #ff3d4a;
+  --red-dim:   #b02030;
+  --yellow:    #ffe040;
+  --purple:    #b388ff;
+  --orange:    #ff6b35;
+
+  --text-hi:   #e8f4fd;
+  --text-mid:  #6b96b8;
+  --text-dim:  #2e5470;
+
+  --mono: 'IBM Plex Mono', monospace;
+  --orb:  'Orbitron', sans-serif;
+  --blk:  'Bebas Neue', sans-serif;
+
+  --ticker-h:  38px;
+  --left-w:    220px;
+  --right-w:   340px;
+  --bottom-h:  240px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--bg0);
+  color: var(--text-hi);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 9000; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,.06) 2px,
+    rgba(0,0,0,.06) 4px
+  );
+}
+
+/* Grid noise texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,212,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ── MASTER LAYOUT ── */
+#app {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-rows: var(--ticker-h) 1fr var(--bottom-h);
+  grid-template-columns: var(--left-w) 1fr var(--right-w);
+  height: 100vh; width: 100vw;
+  gap: 0;
+}
+
+/* ── TOP TICKER BAR ── */
+#ticker-bar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border-hi);
+  display: flex; align-items: center;
+  overflow: hidden; position: relative;
+  z-index: 100;
+}
+
+.ticker-brand {
+  font-family: var(--orb); font-size: 11px; font-weight: 700;
+  color: var(--amber); letter-spacing: .15em;
+  padding: 0 14px; white-space: nowrap;
+  border-right: 1px solid var(--border-hi);
+  height: 100%; display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(90deg, rgba(245,166,35,.12), transparent);
+  flex-shrink: 0;
+}
+
+.ticker-brand span { color: var(--cyan); }
+
+.ticker-status {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9px; color: var(--green); letter-spacing: .12em;
+  padding: 0 12px;
+  border-right: 1px solid var(--border-hi);
+  height: 100%; flex-shrink: 0;
+}
+
+.pulse-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse-anim 1.8s infinite;
+}
+@keyframes pulse-anim {
+  0%,100% { opacity:1; box-shadow: 0 0 8px var(--green); }
+  50%     { opacity:.3; box-shadow: 0 0 3px var(--green); }
+}
+
+.ticker-track-wrap {
+  flex: 1; overflow: hidden; height: 100%;
+  display: flex; align-items: center;
+}
+.ticker-track {
+  display: flex; gap: 0;
+  animation: ticker-slide 60s linear infinite;
+  white-space: nowrap;
+}
+.ticker-track:hover { animation-play-state: paused; }
+@keyframes ticker-slide {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.tick-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 18px;
+  border-right: 1px solid var(--border);
+  height: var(--ticker-h);
+}
+.tick-sym { font-size: 9px; color: var(--text-mid); letter-spacing: .1em; font-weight: 600; }
+.tick-val { font-size: 11px; color: var(--text-hi); font-weight: 600; }
+.tick-chg { font-size: 9px; }
+.tick-chg.up   { color: var(--green); }
+.tick-chg.dn   { color: var(--red); }
+.tick-chg.flat { color: var(--text-dim); }
+
+.ticker-time {
+  font-family: var(--orb); font-size: 10px; color: var(--text-mid);
+  padding: 0 14px; border-left: 1px solid var(--border-hi);
+  height: 100%; display: flex; align-items: center;
+  flex-shrink: 0; letter-spacing: .08em;
+}
+
+/* ── LEFT PANEL ── */
+#left-panel {
+  grid-column: 1; grid-row: 2;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-hi);
+  display: flex; flex-direction: column; gap: 0;
+  overflow-y: auto; overflow-x: hidden;
+}
+#left-panel::-webkit-scrollbar { width: 3px; }
+#left-panel::-webkit-scrollbar-thumb { background: var(--border-hi); }
+
+/* ── CENTER (GLOBE) ── */
+#globe-wrap {
+  grid-column: 2; grid-row: 2;
+  position: relative; overflow: hidden;
+  background: #010608;
+}
+#globeCanvas { width: 100%; height: 100%; }
+
+/* Globe overlay controls */
+#globe-overlay {
+  position: absolute; top: 10px; left: 10px; right: 10px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  pointer-events: none;
+}
+#globe-title-area { pointer-events: none; }
+#globe-label {
+  font-family: var(--blk); font-size: 18px; letter-spacing: .1em;
+  color: var(--cyan); line-height: 1;
+  text-shadow: 0 0 20px rgba(0,212,255,.5);
+}
+#globe-sublabel {
+  font-size: 8px; color: var(--text-dim); letter-spacing: .18em;
+  text-transform: uppercase; margin-top: 3px;
+}
+
+#layer-badge-wrap { display: flex; gap: 4px; pointer-events: auto; }
+
+/* ── RIGHT PANEL ── */
+#right-panel {
+  grid-column: 3; grid-row: 2;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-hi);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── BOTTOM PANEL (SHOCK ENGINE) ── */
+#bottom-panel {
+  grid-column: 1 / -1; grid-row: 3;
+  background: var(--bg1);
+  border-top: 1px solid var(--border-hi);
+  display: flex; align-items: stretch;
+  overflow: hidden;
+}
+
+/* ══════════ PANEL COMPONENTS ══════════ */
+
+/* Panel section */
+.panel-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-section:last-child { border-bottom: none; }
+
+.panel-title {
+  font-size: 8px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 5px;
+}
+.panel-title::before {
+  content: ''; display: block; width: 10px; height: 1px; background: var(--amber);
+}
+
+/* Layer toggle buttons */
+.layer-group { display: flex; flex-direction: column; gap: 4px; }
+
+.layer-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 2px; cursor: pointer;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  color: var(--text-mid); text-transform: uppercase;
+  transition: all .15s; user-select: none;
+}
+.layer-btn:hover { border-color: var(--text-mid); color: var(--text-hi); }
+.layer-btn.active { background: var(--cyan-glow); border-color: var(--cyan); color: var(--cyan); }
+.layer-btn.active.macro  { background: rgba(0,230,118,.1);  border-color: var(--green);  color: var(--green); }
+.layer-btn.active.market { background: rgba(245,166,35,.1); border-color: var(--amber);  color: var(--amber); }
+.layer-btn.active.geo    { background: rgba(255,61,74,.1);  border-color: var(--red);    color: var(--red); }
+
+.layer-icon { font-size: 11px; width: 16px; text-align: center; }
+.layer-dot { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; }
+.macro-dot  { background: var(--green); }
+.market-dot { background: var(--amber); }
+.geo-dot    { background: var(--red); }
+
+/* Scenario selector */
+.scenario-btns { display: flex; flex-direction: column; gap: 3px; }
+.scen-btn {
+  padding: 6px 9px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 2px; cursor: pointer;
+  font-family: var(--mono); font-size: 8px; letter-spacing: .12em;
+  color: var(--text-mid); text-transform: uppercase;
+  transition: all .15s;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.scen-btn:hover { border-color: var(--amber); color: var(--text-hi); }
+.scen-btn.active.base  { background:rgba(0,212,255,.08);  border-color:var(--cyan);  color:var(--cyan); }
+.scen-btn.active.esc   { background:rgba(255,61,74,.08);  border-color:var(--red);   color:var(--red); }
+.scen-btn.active.de    { background:rgba(0,230,118,.08);  border-color:var(--green); color:var(--green); }
+.scen-prob { font-size: 7px; opacity: .7; }
+
+/* Metric row */
+.metric-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; border-bottom: 1px solid var(--border);
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-label { font-size: 8px; color: var(--text-mid); letter-spacing: .08em; }
+.metric-val   { font-size: 10px; font-weight: 600; color: var(--text-hi); }
+.metric-val.up   { color: var(--green); }
+.metric-val.dn   { color: var(--red); }
+.metric-val.warn { color: var(--amber); }
+
+/* Alert items */
+.alert-list { display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
+.alert-item {
+  padding: 5px 8px;
+  background: rgba(255,61,74,.08);
+  border-left: 2px solid var(--red);
+  border-radius: 1px;
+  font-size: 8px; color: var(--text-mid); line-height: 1.5;
+}
+.alert-item.warn { background: rgba(245,166,35,.08); border-color: var(--amber); }
+.alert-item.info { background: rgba(0,212,255,.06);  border-color: var(--cyan); }
+.alert-item strong { color: var(--text-hi); display: block; margin-bottom: 2px; font-size: 9px; }
+
+/* ══ RIGHT PANEL — Country detail ══ */
+#country-placeholder {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex: 1; gap: 10px;
+  color: var(--text-dim);
+}
+#country-placeholder .icon { font-size: 32px; opacity: .3; }
+#country-placeholder p { font-size: 9px; letter-spacing: .15em; text-align: center; line-height: 1.8; }
+
+#country-detail { display: none; flex-direction: column; height: 100%; overflow-y: auto; }
+#country-detail::-webkit-scrollbar { width: 3px; }
+#country-detail::-webkit-scrollbar-thumb { background: var(--border-hi); }
+
+.cd-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border-hi);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.cd-country-name {
+  font-family: var(--blk); font-size: 22px; letter-spacing: .08em;
+  color: var(--text-hi); line-height: 1;
+}
+.cd-region {
+  font-size: 8px; color: var(--text-dim); letter-spacing: .18em;
+  text-transform: uppercase; margin-top: 4px;
+}
+.cd-risk-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 1px;
+  font-size: 8px; font-weight: 700; letter-spacing: .12em;
+  margin-top: 6px;
+}
+.risk-extreme  { background: rgba(255,61,74,.2);  color: var(--red);    border: 1px solid var(--red); }
+.risk-high     { background: rgba(255,107,53,.2); color: var(--orange); border: 1px solid var(--orange); }
+.risk-moderate { background: rgba(245,166,35,.2); color: var(--amber);  border: 1px solid var(--amber); }
+.risk-low      { background: rgba(0,230,118,.15); color: var(--green);  border: 1px solid var(--green); }
+.risk-minimal  { background: rgba(0,212,255,.1);  color: var(--cyan);   border: 1px solid var(--cyan); }
+
+.cd-metrics {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.cd-metric {
+  background: var(--bg-panel); padding: 8px 12px;
+}
+.cd-metric-label { font-size: 7px; color: var(--text-dim); letter-spacing: .15em; text-transform: uppercase; }
+.cd-metric-val {
+  font-family: var(--orb); font-size: 15px; font-weight: 700;
+  margin-top: 3px; line-height: 1;
+}
+.cd-metric-sub { font-size: 7px; color: var(--text-mid); margin-top: 2px; }
+
+.cd-chart-area {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.cd-chart-title { font-size: 8px; color: var(--text-dim); letter-spacing: .15em; margin-bottom: 6px; }
+.cd-chart { height: 80px; }
+
+.cd-insights {
+  padding: 10px 12px; flex: 1;
+}
+.cd-insight-item {
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+  font-size: 9px; color: var(--text-mid); line-height: 1.6;
+}
+.cd-insight-item:last-child { border-bottom: none; }
+.cd-insight-item strong { color: var(--amber); }
+
+/* ══ BOTTOM: SHOCK TRANSMISSION ══ */
+#shock-left {
+  width: 160px; flex-shrink: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.shock-title {
+  font-family: var(--blk); font-size: 14px; letter-spacing: .08em;
+  color: var(--amber); line-height: 1;
+}
+.shock-subtitle { font-size: 7px; color: var(--text-dim); letter-spacing: .15em; }
+
+#shock-scenario-label {
+  font-size: 8px; color: var(--cyan); letter-spacing: .1em;
+  padding: 4px 7px; background: var(--cyan-glow); border: 1px solid var(--border-hi);
+  border-radius: 1px; margin-top: auto;
+}
+
+#shock-center {
+  flex: 1; padding: 12px 20px;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow: hidden;
+}
+.shock-chain-label { font-size: 8px; color: var(--text-dim); letter-spacing: .18em; text-transform: uppercase; }
+.shock-chain {
+  display: flex; align-items: center; gap: 0; flex: 1;
+  min-height: 0;
+}
+.shock-node {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex: 1; min-width: 0;
+}
+.shock-node-inner {
+  width: 100%; max-width: 90px;
+  padding: 6px 4px; border-radius: 2px;
+  border: 1px solid var(--border-hi);
+  background: var(--bg2);
+  text-align: center; cursor: pointer;
+  transition: all .2s;
+}
+.shock-node-inner:hover { border-color: var(--amber); background: var(--amber-glow); }
+.shock-node-inner.active { border-color: var(--red); background: rgba(255,61,74,.12); }
+.shock-node-icon { font-size: 14px; line-height: 1; }
+.shock-node-name { font-size: 7px; color: var(--text-mid); letter-spacing: .08em; margin-top: 2px; line-height: 1.3; }
+.shock-node-val  { font-size: 8px; color: var(--amber); font-weight: 600; margin-top: 1px; }
+
+.shock-arrow {
+  width: 28px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.shock-arrow-line {
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, var(--border-hi), var(--amber-dim));
+  position: relative;
+}
+.shock-particle {
+  position: absolute; top: -2px; left: -8px;
+  width: 6px; height: 5px; border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px var(--amber);
+  animation: particle-flow 2s linear infinite;
+}
+@keyframes particle-flow {
+  0%   { left: -8px; opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { left: calc(100% + 8px); opacity: 0; }
+}
+.shock-arrow-line::after {
+  content: '▶'; position: absolute; right: -6px; top: -5px;
+  font-size: 8px; color: var(--amber-dim);
+}
+
+#shock-right {
+  width: 260px; flex-shrink: 0;
+  padding: 12px 14px;
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto;
+}
+.shock-impact-title { font-size: 8px; color: var(--text-dim); letter-spacing: .18em; text-transform: uppercase; }
+.shock-impact-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; border-bottom: 1px solid var(--border);
+}
+.shock-impact-row:last-child { border-bottom: none; }
+.shock-country-name { font-size: 9px; color: var(--text-mid); }
+.shock-bar-wrap { flex: 1; height: 4px; background: var(--bg3); margin: 0 8px; border-radius: 2px; overflow: hidden; }
+.shock-bar { height: 100%; border-radius: 2px; transition: width .4s ease; }
+.shock-impact-val { font-size: 8px; font-weight: 600; width: 32px; text-align: right; }
+
+/* ══ CHOKEPOINT PANEL ══ */
+.chokepoint-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.choke-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 1px;
+  padding: 6px 8px; cursor: pointer; transition: all .15s;
+}
+.choke-card:hover { border-color: var(--amber); }
+.choke-card.disrupted { border-color: var(--red); background: rgba(255,61,74,.08); }
+.choke-name { font-size: 7px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; }
+.choke-status { font-size: 8px; font-weight: 600; margin-top: 2px; }
+.choke-status.open { color: var(--green); }
+.choke-status.risk { color: var(--amber); }
+.choke-status.closed { color: var(--red); }
+.choke-vol { font-size: 7px; color: var(--text-dim); margin-top: 1px; }
+
+/* ══ WEIGHT SLIDERS ══ */
+.weight-slider-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.ws-label { font-size: 7px; color: var(--text-dim); width: 65px; flex-shrink: 0; }
+.ws-slider {
+  flex: 1; appearance: none; height: 3px;
+  background: var(--bg3); border-radius: 2px; outline: none; cursor: pointer;
+}
+.ws-slider::-webkit-slider-thumb {
+  appearance: none; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--amber); cursor: pointer;
+  box-shadow: 0 0 6px rgba(245,166,35,.5);
+}
+.ws-val { font-size: 7px; color: var(--amber); width: 22px; text-align: right; flex-shrink: 0; }
+
+/* ══ AI INSIGHTS ══ */
+.ai-insight {
+  padding: 7px 9px;
+  background: rgba(179,136,255,.06);
+  border-left: 2px solid var(--purple);
+  border-radius: 1px; margin-bottom: 4px;
+  font-size: 8px; color: var(--text-mid); line-height: 1.6;
+}
+.ai-insight strong { color: var(--purple); display: block; margin-bottom: 2px; }
+
+/* ══ MISC ══ */
+.divider { height: 1px; background: var(--border); margin: 0; }
+
+.badge {
+  font-size: 7px; letter-spacing: .12em; text-transform: uppercase;
+  padding: 2px 5px; border-radius: 1px; font-weight: 700;
+}
+.badge-live { background: rgba(0,230,118,.15); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+.badge-sim  { background: rgba(245,166,35,.15); color: var(--amber); border: 1px solid rgba(245,166,35,.3); }
+
+button { cursor: pointer; }
+input  { cursor: pointer; }
+
+/* Globe tooltip */
+#globe-tooltip {
+  position: absolute; pointer-events: none;
+  background: var(--bg2); border: 1px solid var(--border-hi);
+  border-left: 2px solid var(--amber);
+  padding: 8px 11px; border-radius: 2px;
+  font-family: var(--mono); font-size: 9px; color: var(--text-mid);
+  box-shadow: 0 4px 20px rgba(0,0,0,.8);
+  z-index: 200; display: none; min-width: 160px;
+}
+#globe-tooltip strong { color: var(--text-hi); display: block; font-size: 10px; margin-bottom: 4px; }
+
+/* Active globe layer badge */
+.layer-badge {
+  padding: 3px 8px; border-radius: 2px; font-size: 8px;
+  font-family: var(--mono); letter-spacing: .1em; font-weight: 600;
+  border: 1px solid;
+}
+.lb-macro  { color: var(--green);  border-color: var(--green);  background: rgba(0,230,118,.1); }
+.lb-market { color: var(--amber);  border-color: var(--amber);  background: rgba(245,166,35,.1); }
+.lb-geo    { color: var(--red);    border-color: var(--red);    background: rgba(255,61,74,.1); }
+
+/* Mini time slider */
+.time-slider-wrap {
+  display: flex; flex-direction: column; gap: 5px;
+}
+.time-labels { display: flex; justify-content: space-between; font-size: 7px; color: var(--text-dim); }
+#timeSlider {
+  width: 100%; appearance: none; height: 3px;
+  background: linear-gradient(90deg, var(--amber-dim), var(--bg3));
+  border-radius: 2px; outline: none;
+}
+#timeSlider::-webkit-slider-thumb {
+  appearance: none; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--amber); box-shadow: 0 0 8px rgba(245,166,35,.6);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: var(--bg0); }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════ TOP TICKER BAR ══════════ -->
+  <div id="ticker-bar">
+    <div class="ticker-brand">
+      DELAX <span>INTEL</span>
+    </div>
+    <div class="ticker-status">
+      <div class="pulse-dot"></div> LIVE SIM
+    </div>
+    <div class="ticker-track-wrap">
+      <div class="ticker-track" id="tickerTrack">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+    <div class="ticker-time" id="clockDisplay">--:--:-- UTC</div>
+  </div>
+
+  <!-- ══════════ LEFT CONTROL PANEL ══════════ -->
+  <div id="left-panel">
+
+    <!-- LAYER TOGGLES -->
+    <div class="panel-section">
+      <div class="panel-title">Data Layers</div>
+      <div class="layer-group">
+        <div class="layer-btn macro active" data-layer="macro" onclick="setLayer('macro',this)">
+          <span class="layer-icon">📊</span> MACRO
+          <div class="layer-dot macro-dot"></div>
+        </div>
+        <div class="layer-btn market" data-layer="market" onclick="setLayer('market',this)">
+          <span class="layer-icon">📈</span> MARKET
+          <div class="layer-dot market-dot"></div>
+        </div>
+        <div class="layer-btn geo" data-layer="geo" onclick="setLayer('geo',this)">
+          <span class="layer-icon">⚡</span> GEOPOLITICAL
+          <div class="layer-dot geo-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENARIO SELECTOR -->
+    <div class="panel-section">
+      <div class="panel-title">Scenario</div>
+      <div class="scenario-btns">
+        <div class="scen-btn base active" data-scen="base" onclick="setScenario('base',this)">
+          BASE CASE <span class="scen-prob">P=50%</span>
+        </div>
+        <div class="scen-btn esc" data-scen="esc" onclick="setScenario('esc',this)">
+          ESCALATION <span class="scen-prob">P=28%</span>
+        </div>
+        <div class="scen-btn de" data-scen="de" onclick="setScenario('de',this)">
+          DE-ESCALATION <span class="scen-prob">P=22%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KEY MARKETS -->
+    <div class="panel-section">
+      <div class="panel-title">Key Markets</div>
+      <div class="metric-row"><span class="metric-label">BRENT CRUDE</span><span class="metric-val up" id="m-brent">$121.88</span></div>
+      <div class="metric-row"><span class="metric-label">WTI CRUDE</span><span class="metric-val up" id="m-wti">$118.20</span></div>
+      <div class="metric-row"><span class="metric-label">NAT GAS (LNG)</span><span class="metric-val up" id="m-lng">$9.42</span></div>
+      <div class="metric-row"><span class="metric-label">VIX</span><span class="metric-val warn" id="m-vix">28.4</span></div>
+      <div class="metric-row"><span class="metric-label">DXY (USD IDX)</span><span class="metric-val" id="m-dxy">104.82</span></div>
+      <div class="metric-row"><span class="metric-label">GOLD</span><span class="metric-val up" id="m-gold">$2,318</span></div>
+      <div class="metric-row"><span class="metric-label">US 10Y YIELD</span><span class="metric-val" id="m-10y">4.38%</span></div>
+      <div class="metric-row"><span class="metric-label">EM CREDIT SPREAD</span><span class="metric-val dn" id="m-spread">+385bp</span></div>
+    </div>
+
+    <!-- CHOKEPOINTS -->
+    <div class="panel-section">
+      <div class="panel-title">Chokepoints</div>
+      <div class="chokepoint-grid">
+        <div class="choke-card disrupted" id="chk-hormuz" onclick="flyToChokepoint('hormuz')">
+          <div class="choke-name">HORMUZ</div>
+          <div class="choke-status risk" id="cs-hormuz">⚠ AT RISK</div>
+          <div class="choke-vol">20% global oil</div>
+        </div>
+        <div class="choke-card" id="chk-suez" onclick="flyToChokepoint('suez')">
+          <div class="choke-name">SUEZ</div>
+          <div class="choke-status risk" id="cs-suez">⚠ PARTIAL</div>
+          <div class="choke-vol">12% global trade</div>
+        </div>
+        <div class="choke-card" id="chk-bab" onclick="flyToChokepoint('bab')">
+          <div class="choke-name">BAB EL-MANDEB</div>
+          <div class="choke-status risk" id="cs-bab">⚠ MONITORED</div>
+          <div class="choke-vol">9% global oil</div>
+        </div>
+        <div class="choke-card" onclick="flyToChokepoint('malacca')">
+          <div class="choke-name">MALACCA</div>
+          <div class="choke-status open" id="cs-malacca">✓ OPEN</div>
+          <div class="choke-vol">25% global trade</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIME SLIDER -->
+    <div class="panel-section">
+      <div class="panel-title">Time Horizon</div>
+      <div class="time-slider-wrap">
+        <input type="range" id="timeSlider" min="0" max="36" value="0" oninput="updateTimeHorizon(this.value)"/>
+        <div class="time-labels"><span>NOW</span><span id="timeLabel">+0M</span><span>+36M</span></div>
+      </div>
+    </div>
+
+    <!-- STRESS WEIGHTS -->
+    <div class="panel-section">
+      <div class="panel-title">Stress Weights</div>
+      <div class="weight-slider-row">
+        <span class="ws-label">Energy Dep.</span>
+        <input type="range" class="ws-slider" min="0" max="100" value="30" oninput="updateWeight('energy',this.value)"/>
+        <span class="ws-val" id="w-energy">30</span>
+      </div>
+      <div class="weight-slider-row">
+        <span class="ws-label">Inflation</span>
+        <input type="range" class="ws-slider" min="0" max="100" value="25" oninput="updateWeight('inflation',this.value)"/>
+        <span class="ws-val" id="w-inflation">25</span>
+      </div>
+      <div class="weight-slider-row">
+        <span class="ws-label">FX Pressure</span>
+        <input type="range" class="ws-slider" min="0" max="100" value="20" oninput="updateWeight('fx',this.value)"/>
+        <span class="ws-val" id="w-fx">20</span>
+      </div>
+      <div class="weight-slider-row">
+        <span class="ws-label">Trade Disruption</span>
+        <input type="range" class="ws-slider" min="0" max="100" value="15" oninput="updateWeight('trade',this.value)"/>
+        <span class="ws-val" id="w-trade">15</span>
+      </div>
+      <div class="weight-slider-row">
+        <span class="ws-label">Financial Stress</span>
+        <input type="range" class="ws-slider" min="0" max="100" value="10" oninput="updateWeight('fin',this.value)"/>
+        <span class="ws-val" id="w-fin">10</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ GLOBE CENTER ══════════ -->
+  <div id="globe-wrap">
+    <div id="globeCanvas"></div>
+    <!-- Overlay -->
+    <div id="globe-overlay">
+      <div id="globe-title-area">
+        <div id="globe-label">GLOBAL RISK GLOBE</div>
+        <div id="globe-sublabel">Multi-Layer Economic Stress Intelligence</div>
+      </div>
+      <div id="layer-badge-wrap">
+        <div class="badge badge-live">LIVE SIM</div>
+        <div class="badge badge-sim" id="activeBadge" style="margin-left:4px">MACRO LAYER</div>
+      </div>
+    </div>
+    <!-- Tooltip -->
+    <div id="globe-tooltip"></div>
+    <!-- Alert strip -->
+    <div id="alert-strip" style="
+      position:absolute;bottom:0;left:0;right:0;
+      background:rgba(255,61,74,.12);border-top:1px solid rgba(255,61,74,.4);
+      padding:5px 14px;font-size:9px;color:var(--red);letter-spacing:.08em;
+      display:flex;align-items:center;gap:8px;overflow:hidden;
+    ">
+      <span style="font-weight:700;flex-shrink:0">⚠ ALERT:</span>
+      <div id="alertScrollText" style="white-space:nowrap;animation:alert-scroll 20s linear infinite">
+        Brent crude above $120 threshold · EM currency basket under pressure · Hormuz transit risk elevated · VIX > 28 signals elevated volatility
+      </div>
+    </div>
+    <style>
+    @keyframes alert-scroll {
+      0%   { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+    </style>
+  </div>
+
+  <!-- ══════════ RIGHT PANEL ══════════ -->
+  <div id="right-panel">
+    <!-- Placeholder -->
+    <div id="country-placeholder">
+      <div class="icon">🌐</div>
+      <p>CLICK ANY COUNTRY<br>ON THE GLOBE<br>FOR DETAIL ANALYSIS</p>
+    </div>
+    <!-- Country detail (shown on click) -->
+    <div id="country-detail">
+      <div class="cd-header">
+        <div class="cd-country-name" id="cd-name">—</div>
+        <div class="cd-region" id="cd-region">—</div>
+        <div class="cd-risk-badge" id="cd-risk-badge">—</div>
+      </div>
+      <div class="cd-metrics">
+        <div class="cd-metric">
+          <div class="cd-metric-label">Stress Index</div>
+          <div class="cd-metric-val" id="cd-stress" style="color:var(--red)">—</div>
+          <div class="cd-metric-sub">Composite /10</div>
+        </div>
+        <div class="cd-metric">
+          <div class="cd-metric-label">Oil Dependency</div>
+          <div class="cd-metric-val" id="cd-oildep" style="color:var(--amber)">—</div>
+          <div class="cd-metric-sub">% import reliance</div>
+        </div>
+        <div class="cd-metric">
+          <div class="cd-metric-label">CPI (YoY)</div>
+          <div class="cd-metric-val" id="cd-cpi" style="color:var(--orange)">—</div>
+          <div class="cd-metric-sub">Inflation rate</div>
+        </div>
+        <div class="cd-metric">
+          <div class="cd-metric-label">GDP Growth</div>
+          <div class="cd-metric-val" id="cd-gdp" style="color:var(--cyan)">—</div>
+          <div class="cd-metric-sub">Annual nowcast</div>
+        </div>
+        <div class="cd-metric">
+          <div class="cd-metric-label">FX Volatility</div>
+          <div class="cd-metric-val" id="cd-fxvol" style="color:var(--yellow)">—</div>
+          <div class="cd-metric-sub">30D implied vol</div>
+        </div>
+        <div class="cd-metric">
+          <div class="cd-metric-label">Trade Balance</div>
+          <div class="cd-metric-val" id="cd-trade" style="color:var(--green)">—</div>
+          <div class="cd-metric-sub">% of GDP</div>
+        </div>
+      </div>
+      <!-- Mini chart: Stress history -->
+      <div class="cd-chart-area">
+        <div class="cd-chart-title">90-DAY STRESS INDEX TREND</div>
+        <div class="cd-chart" id="cd-stress-chart"></div>
+      </div>
+      <!-- Mini chart: CPI trend -->
+      <div class="cd-chart-area">
+        <div class="cd-chart-title">CPI TRAJECTORY (12M)</div>
+        <div class="cd-chart" id="cd-cpi-chart"></div>
+      </div>
+      <!-- AI Insights -->
+      <div class="cd-insights">
+        <div class="panel-title">AI Insights</div>
+        <div id="cd-insights-body">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ BOTTOM: SHOCK TRANSMISSION ENGINE ══════════ -->
+  <div id="bottom-panel">
+    <div id="shock-left">
+      <div>
+        <div class="shock-title">SHOCK ENGINE</div>
+        <div class="shock-subtitle">PROPAGATION TIMELINE</div>
+      </div>
+      <div class="ai-insight" style="margin:0;font-size:7px">
+        <strong>MODEL ACTIVE</strong>
+        Simulating contagion from Iran conflict across 60 countries using trade-finance-energy coupling.
+      </div>
+      <div id="shock-scenario-label">⚡ BASE SCENARIO</div>
+    </div>
+
+    <div id="shock-center">
+      <div class="shock-chain-label">SHOCK PROPAGATION CHAIN — REAL-TIME SIMULATION</div>
+      <div class="shock-chain">
+
+        <div class="shock-node">
+          <div class="shock-node-inner active">
+            <div class="shock-node-icon">⚔️</div>
+            <div class="shock-node-name">IRAN<br>CONFLICT</div>
+            <div class="shock-node-val" id="sn-conflict">Active</div>
+          </div>
+        </div>
+
+        <div class="shock-arrow">
+          <div class="shock-arrow-line"><div class="shock-particle" style="animation-delay:0s"></div></div>
+        </div>
+
+        <div class="shock-node">
+          <div class="shock-node-inner">
+            <div class="shock-node-icon">🛢️</div>
+            <div class="shock-node-name">OIL<br>SPIKE</div>
+            <div class="shock-node-val" id="sn-oil">+56%</div>
+          </div>
+        </div>
+
+        <div class="shock-arrow">
+          <div class="shock-arrow-line"><div class="shock-particle" style="animation-delay:.4s"></div></div>
+        </div>
+
+        <div class="shock-node">
+          <div class="shock-node-inner">
+            <div class="shock-node-icon">📈</div>
+            <div class="shock-node-name">INFLATION<br>SURGE</div>
+            <div class="shock-node-val" id="sn-cpi">+3.8pp</div>
+          </div>
+        </div>
+
+        <div class="shock-arrow">
+          <div class="shock-arrow-line"><div class="shock-particle" style="animation-delay:.8s"></div></div>
+        </div>
+
+        <div class="shock-node">
+          <div class="shock-node-inner">
+            <div class="shock-node-icon">🏦</div>
+            <div class="shock-node-name">CB<br>TIGHTENING</div>
+            <div class="shock-node-val" id="sn-rates">+200bp</div>
+          </div>
+        </div>
+
+        <div class="shock-arrow">
+          <div class="shock-arrow-line"><div class="shock-particle" style="animation-delay:1.2s"></div></div>
+        </div>
+
+        <div class="shock-node">
+          <div class="shock-node-inner">
+            <div class="shock-node-icon">📉</div>
+            <div class="shock-node-name">GROWTH<br>SLOWDOWN</div>
+            <div class="shock-node-val" id="sn-gdp">-1.9%</div>
+          </div>
+        </div>
+
+        <div class="shock-arrow">
+          <div class="shock-arrow-line"><div class="shock-particle" style="animation-delay:1.6s"></div></div>
+        </div>
+
+        <div class="shock-node">
+          <div class="shock-node-inner">
+            <div class="shock-node-icon">💱</div>
+            <div class="shock-node-name">EM<br>PRESSURE</div>
+            <div class="shock-node-val" id="sn-em">-14% FX</div>
+          </div>
+        </div>
+
+        <div class="shock-arrow">
+          <div class="shock-arrow-line"><div class="shock-particle" style="animation-delay:2.0s"></div></div>
+        </div>
+
+        <div class="shock-node">
+          <div class="shock-node-inner">
+            <div class="shock-node-icon">🚨</div>
+            <div class="shock-node-name">FOOD<br>CRISIS</div>
+            <div class="shock-node-val" id="sn-food">+27%</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="shock-right">
+      <div class="shock-impact-title">MOST IMPACTED COUNTRIES</div>
+      <!-- Populated by JS -->
+      <div id="shock-impact-list"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT — Full Intelligence Platform Engine
+     Sections: DATA · GLOBE · LAYERS · COUNTRY · ALERTS · UI
+     ════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════
+   DATA ENGINE
+   All country data, market metrics, and streaming simulation.
+   Replace simulated values with real API calls here later:
+     - Energy: EIA API, Bloomberg energy data
+     - Markets: Finnhub, Polygon.io, Alpha Vantage
+     - FX: Open Exchange Rates, ECB
+     - Macro: IMF, World Bank, FRED
+   ═══════════════════════════════════════════════════════ */
+
+const MARKET = {
+  brent:  121.88, wti: 118.20, lng: 9.42,
+  vix:    28.4,   dxy: 104.82, gold: 2318,
+  us10y:  4.38,   em_spread: 385,
+  eu10y:  2.95,   jpy: 148.2, gbp: 0.782,
+};
+
+const CHOKEPOINTS = {
+  hormuz:  { name:'Strait of Hormuz',   lat:26.58, lng:56.25, status:'risk',   vol:'20% global oil', disrupted:true },
+  suez:    { name:'Suez Canal',          lat:30.42, lng:32.35, status:'risk',   vol:'12% global trade',disrupted:false },
+  bab:     { name:'Bab el-Mandeb',       lat:12.58, lng:43.25, status:'risk',   vol:'9% global oil',  disrupted:false },
+  malacca: { name:'Strait of Malacca',   lat:3.5,  lng:103.5, status:'open',   vol:'25% global trade',disrupted:false },
+  gibraltar:{name:'Strait of Gibraltar', lat:35.98, lng:-5.36, status:'open',  vol:'4% global trade', disrupted:false },
+};
+
+const CONFLICT_ZONES = [
+  { lat:32.4, lng:53.7,  name:'Iran',             intensity:8.2, color:'#ff3d4a' },
+  { lat:31.5, lng:35.2,  name:'Israel / Gaza',    intensity:9.1, color:'#ff3d4a' },
+  { lat:33.9, lng:35.9,  name:'Lebanon',           intensity:7.4, color:'#ff6b35' },
+  { lat:15.4, lng:44.2,  name:'Yemen',             intensity:7.8, color:'#ff3d4a' },
+  { lat:34.8, lng:38.9,  name:'Syria',             intensity:6.5, color:'#ff6b35' },
+  { lat:48.4, lng:31.2,  name:'Ukraine',           intensity:8.5, color:'#ff3d4a' },
+  { lat:15.1, lng:18.7,  name:'Sudan',             intensity:6.8, color:'#ff6b35' },
+];
+
+/* Country dataset — 60+ countries with full metrics */
+const COUNTRIES = {
+  'Iran':               { region:'Middle East',    stress:4.5, oilDep:45,  cpi:38.0, gdp:-8.2,  fxVol:42, trade:-4.2, pmI:38 },
+  'Iraq':               { region:'Middle East',    stress:8.5, oilDep:82,  cpi:7.4,  gdp:-5.8,  fxVol:28, trade:8.1,  pmi:39 },
+  'Saudi Arabia':       { region:'Middle East',    stress:8.8, oilDep:-90, cpi:3.1,  gdp:-4.2,  fxVol:8,  trade:15.2, pmi:56 },
+  'United Arab Emirates':{ region:'Middle East',  stress:7.5, oilDep:-70, cpi:4.8,  gdp:-2.1,  fxVol:6,  trade:12.4, pmi:54 },
+  'Kuwait':             { region:'Middle East',    stress:7.8, oilDep:-85, cpi:3.8,  gdp:-3.1,  fxVol:7,  trade:18.2, pmi:52 },
+  'Qatar':              { region:'Middle East',    stress:7.0, oilDep:-88, cpi:4.2,  gdp:-1.8,  fxVol:5,  trade:22.1, pmi:55 },
+  'Israel':             { region:'Middle East',    stress:7.5, oilDep:92,  cpi:5.8,  gdp:-4.5,  fxVol:22, trade:-3.8, pmi:44 },
+  'Yemen':              { region:'Middle East',    stress:9.2, oilDep:88,  cpi:28.4, gdp:-12.1, fxVol:65, trade:-18.2,pmi:32 },
+  'Lebanon':            { region:'Middle East',    stress:8.0, oilDep:98,  cpi:210.0,gdp:-6.5,  fxVol:80, trade:-22.4,pmi:30 },
+  'Syria':              { region:'Middle East',    stress:8.5, oilDep:78,  cpi:82.0, gdp:-11.0, fxVol:75, trade:-25.1,pmi:28 },
+  'Jordan':             { region:'Middle East',    stress:6.5, oilDep:95,  cpi:4.2,  gdp:-2.8,  fxVol:12, trade:-14.2,pmi:46 },
+  'Egypt':              { region:'North Africa',   stress:6.8, oilDep:76,  cpi:31.8, gdp:-1.2,  fxVol:38, trade:-8.2, pmi:43 },
+  'Libya':              { region:'North Africa',   stress:7.0, oilDep:-60, cpi:5.2,  gdp:-4.2,  fxVol:40, trade:12.1, pmi:38 },
+  'Algeria':            { region:'North Africa',   stress:6.5, oilDep:-55, cpi:9.8,  gdp:-1.8,  fxVol:18, trade:4.2,  pmi:42 },
+  'Morocco':            { region:'North Africa',   stress:6.2, oilDep:88,  cpi:6.1,  gdp:-1.5,  fxVol:14, trade:-10.2,pmi:44 },
+  'Tunisia':            { region:'North Africa',   stress:5.8, oilDep:82,  cpi:9.4,  gdp:-2.2,  fxVol:22, trade:-12.8,pmi:42 },
+  'Turkey':             { region:'Europe',         stress:4.2, oilDep:90,  cpi:44.2, gdp:3.8,   fxVol:42, trade:-6.8, pmi:48 },
+  'Germany':            { region:'Europe',         stress:3.8, oilDep:95,  cpi:2.8,  gdp:-0.4,  fxVol:8,  trade:4.2,  pmi:44 },
+  'France':             { region:'Europe',         stress:3.6, oilDep:92,  cpi:2.4,  gdp:0.2,   fxVol:7,  trade:-2.1, pmi:43 },
+  'Italy':              { region:'Europe',         stress:3.9, oilDep:94,  cpi:2.2,  gdp:-0.2,  fxVol:9,  trade:1.2,  pmi:42 },
+  'Spain':              { region:'Europe',         stress:3.4, oilDep:88,  cpi:2.9,  gdp:1.8,   fxVol:8,  trade:-2.8, pmi:51 },
+  'United Kingdom':     { region:'Europe',         stress:3.5, oilDep:72,  cpi:3.2,  gdp:-0.1,  fxVol:9,  trade:-4.2, pmi:47 },
+  'Greece':             { region:'Europe',         stress:4.0, oilDep:96,  cpi:3.1,  gdp:1.4,   fxVol:10, trade:-12.4,pmi:46 },
+  'Poland':             { region:'Europe',         stress:3.2, oilDep:78,  cpi:4.8,  gdp:2.8,   fxVol:11, trade:-2.2, pmi:48 },
+  'Ukraine':            { region:'Europe',         stress:4.5, oilDep:85,  cpi:8.5,  gdp:-4.2,  fxVol:35, trade:-8.2, pmi:38 },
+  'Russia':             { region:'Europe',         stress:3.5, oilDep:-80, cpi:8.2,  gdp:3.6,   fxVol:28, trade:8.8,  pmi:50 },
+  'United States of America':{ region:'North America', stress:2.1, oilDep:20, cpi:3.1, gdp:2.4, fxVol:6, trade:-4.2, pmi:52 },
+  'Canada':             { region:'North America',  stress:1.8, oilDep:-30, cpi:2.8,  gdp:2.1,   fxVol:7,  trade:2.8,  pmi:51 },
+  'Mexico':             { region:'North America',  stress:2.3, oilDep:42,  cpi:4.2,  gdp:1.8,   fxVol:15, trade:-2.4, pmi:50 },
+  'China':              { region:'East Asia',      stress:2.8, oilDep:75,  cpi:0.8,  gdp:4.8,   fxVol:8,  trade:2.4,  pmi:50 },
+  'Japan':              { region:'East Asia',      stress:2.9, oilDep:98,  cpi:2.8,  gdp:0.8,   fxVol:9,  trade:-1.2, pmi:48 },
+  'South Korea':        { region:'East Asia',      stress:2.7, oilDep:95,  cpi:2.4,  gdp:2.2,   fxVol:10, trade:1.8,  pmi:50 },
+  'Taiwan':             { region:'East Asia',      stress:2.5, oilDep:97,  cpi:2.1,  gdp:3.2,   fxVol:8,  trade:6.2,  pmi:51 },
+  'India':              { region:'South Asia',     stress:5.4, oilDep:88,  cpi:5.2,  gdp:6.8,   fxVol:12, trade:-8.2, pmi:57 },
+  'Pakistan':           { region:'South Asia',     stress:5.8, oilDep:82,  cpi:24.5, gdp:-0.5,  fxVol:42, trade:-14.2,pmi:40 },
+  'Bangladesh':         { region:'South Asia',     stress:5.2, oilDep:78,  cpi:9.8,  gdp:5.2,   fxVol:18, trade:-8.4, pmi:45 },
+  'Sri Lanka':          { region:'South Asia',     stress:5.0, oilDep:88,  cpi:12.4, gdp:1.8,   fxVol:38, trade:-18.2,pmi:42 },
+  'Nigeria':            { region:'Sub-Saharan Africa', stress:6.2, oilDep:85,  cpi:28.9, gdp:2.8, fxVol:38, trade:-2.2, pmi:42 },
+  'South Africa':       { region:'Sub-Saharan Africa', stress:5.5, oilDep:78,  cpi:5.8, gdp:0.8,  fxVol:22, trade:-2.8, pmi:43 },
+  'Ethiopia':           { region:'Sub-Saharan Africa', stress:6.5, oilDep:92,  cpi:28.4, gdp:5.8, fxVol:45, trade:-12.4,pmi:38 },
+  'Kenya':              { region:'Sub-Saharan Africa', stress:5.8, oilDep:85,  cpi:6.8, gdp:4.2,  fxVol:22, trade:-8.4, pmi:44 },
+  'Ghana':              { region:'Sub-Saharan Africa', stress:5.5, oilDep:80,  cpi:22.8, gdp:2.2, fxVol:42, trade:-8.2, pmi:42 },
+  'Somalia':            { region:'Sub-Saharan Africa', stress:7.0, oilDep:98,  cpi:8.2, gdp:-4.2, fxVol:80, trade:-28.4,pmi:28 },
+  'Sudan':              { region:'Sub-Saharan Africa', stress:6.8, oilDep:82,  cpi:64.0, gdp:-6.8, fxVol:75, trade:-18.4,pmi:30 },
+  'Brazil':             { region:'South America',  stress:2.9, oilDep:18,  cpi:4.2,  gdp:2.8,   fxVol:18, trade:1.8,  pmi:52 },
+  'Argentina':          { region:'South America',  stress:3.1, oilDep:28,  cpi:288.0,gdp:-2.4,  fxVol:55, trade:-2.4, pmi:44 },
+  'Venezuela':          { region:'South America',  stress:4.5, oilDep:-85, cpi:180.0,gdp:-8.4,  fxVol:80, trade:-4.2, pmi:30 },
+  'Colombia':           { region:'South America',  stress:2.8, oilDep:22,  cpi:9.2,  gdp:1.8,   fxVol:18, trade:-4.2, pmi:48 },
+  'Chile':              { region:'South America',  stress:2.5, oilDep:92,  cpi:4.2,  gdp:2.2,   fxVol:14, trade:2.4,  pmi:50 },
+  'Peru':               { region:'South America',  stress:2.8, oilDep:45,  cpi:3.2,  gdp:2.8,   fxVol:15, trade:1.2,  pmi:48 },
+  'Australia':          { region:'Oceania',        stress:1.4, oilDep:12,  cpi:3.4,  gdp:2.4,   fxVol:8,  trade:4.2,  pmi:51 },
+  'New Zealand':        { region:'Oceania',        stress:1.2, oilDep:35,  cpi:3.8,  gdp:1.2,   fxVol:9,  trade:-2.4, pmi:49 },
+  'Indonesia':          { region:'Southeast Asia', stress:3.2, oilDep:65,  cpi:3.8,  gdp:5.2,   fxVol:12, trade:2.4,  pmi:52 },
+  'Malaysia':           { region:'Southeast Asia', stress:3.0, oilDep:55,  cpi:2.4,  gdp:4.2,   fxVol:10, trade:8.4,  pmi:52 },
+  'Thailand':           { region:'Southeast Asia', stress:3.4, oilDep:78,  cpi:1.8,  gdp:2.8,   fxVol:10, trade:2.8,  pmi:49 },
+  'Philippines':        { region:'Southeast Asia', stress:3.5, oilDep:82,  cpi:3.2,  gdp:5.8,   fxVol:12, trade:-8.4, pmi:51 },
+  'Vietnam':            { region:'Southeast Asia', stress:3.0, oilDep:62,  cpi:3.8,  gdp:5.4,   fxVol:8,  trade:4.2,  pmi:53 },
+  'Kazakhstan':         { region:'Central Asia',   stress:1.6, oilDep:-65, cpi:8.2,  gdp:3.8,   fxVol:15, trade:6.8,  pmi:51 },
+  'Uzbekistan':         { region:'Central Asia',   stress:1.8, oilDep:28,  cpi:8.8,  gdp:5.2,   fxVol:18, trade:-4.2, pmi:48 },
+  'Afghanistan':        { region:'South Asia',     stress:7.5, oilDep:92,  cpi:18.2, gdp:-12.4, fxVol:75, trade:-42.1,pmi:28 },
+  'Myanmar':            { region:'Southeast Asia', stress:5.0, oilDep:62,  cpi:14.2, gdp:-4.2,  fxVol:45, trade:-12.4,pmi:35 },
+  'Norway':             { region:'Europe',         stress:1.8, oilDep:-120,cpi:3.8,  gdp:2.4,   fxVol:8,  trade:18.4, pmi:50 },
+  'Oman':               { region:'Middle East',    stress:7.0, oilDep:-72, cpi:1.8,  gdp:-2.4,  fxVol:6,  trade:4.2,  pmi:55 },
+  'Bahrain':            { region:'Middle East',    stress:7.2, oilDep:78,  cpi:2.8,  gdp:-1.8,  fxVol:8,  trade:-4.2, pmi:52 },
+};
+
+/* Stress → color mapping */
+function stressColor(stress, alpha=1) {
+  if (!stress || stress < 1.5) return `rgba(0,212,255,${alpha*0.5})`;
+  if (stress < 3)              return `rgba(255,224,64,${alpha*0.7})`;
+  if (stress < 5)              return `rgba(245,166,35,${alpha*0.8})`;
+  if (stress < 7)              return `rgba(255,107,53,${alpha*0.85})`;
+  if (stress < 8.5)            return `rgba(255,61,74,${alpha*0.9})`;
+  return                              `rgba(255,0,30,${alpha})`;
+}
+
+function stressElevation(stress) {
+  if (!stress) return 0.005;
+  return 0.005 + (stress/10)*0.04;
+}
+
+function riskLabel(stress) {
+  if (stress >= 8.5) return ['Extreme Risk',   'risk-extreme'];
+  if (stress >= 7.0) return ['Very High Risk', 'risk-high'];
+  if (stress >= 5.0) return ['Moderate Risk',  'risk-moderate'];
+  if (stress >= 2.5) return ['Low Risk',       'risk-low'];
+  return                    ['Minimal Risk',   'risk-minimal'];
+}
+
+/* Scenario multipliers */
+const SCENARIO_MULT = {
+  base: { oil:1.0, cpi:1.0, gdp:1.0, stress:1.0, fx:1.0 },
+  esc:  { oil:1.35,cpi:1.45,gdp:1.6, stress:1.4, fx:1.5 },
+  de:   { oil:0.70,cpi:0.60,gdp:0.55,stress:0.65,fx:0.55 },
+};
+let scenario = 'base';
+let activeLayer = 'macro';
+let timeHorizon = 0;
+let selectedCountry = null;
+let weights = { energy:30, inflation:25, fx:20, trade:15, fin:10 };
+let geoJsonData = null;
+let globeInstance = null;
+
+/* Working copy of countries (modified by scenario) */
+function getCountryStress(name) {
+  const c = COUNTRIES[name];
+  if (!c) return 0;
+  const m = SCENARIO_MULT[scenario];
+  const base = c.stress * m.stress;
+  // Time horizon decay
+  const decay = Math.max(0, 1 - (timeHorizon/36)*0.65);
+  return Math.min(10, base * decay);
+}
+
+/* ═══════════════════════════════════════
+   STREAMING SIMULATION ENGINE
+   Mimics real-time data feed with random walks
+   ═══════════════════════════════════════ */
+// Seed values — overwritten by fetchLiveMarketData() on load
+// EIA: BRENT/WTI/NG | Alpha Vantage: GOLD/SPX/XOM/LMT | FRED: US10Y/FEDFUNDS/DXY
+const TICK_SYMBOLS = [
+  { id:'BRENT',   label:'BRENT',    price:121.88, prev:121.88, unit:'$/bbl',   live:false },
+  { id:'WTI',     label:'WTI',      price:118.20, prev:118.20, unit:'$/bbl',   live:false },
+  { id:'NG',      label:'NAT GAS',  price:9.42,   prev:9.42,   unit:'$/MMBtu', live:false },
+  { id:'GOLD',    label:'GOLD',     price:2318,   prev:2318,   unit:'$/oz',    live:false },
+  { id:'DXY',     label:'USD IDX',  price:104.82, prev:104.82, unit:'',        live:false },
+  { id:'US10Y',   label:'US 10Y',   price:4.38,   prev:4.38,   unit:'%',       live:false },
+  { id:'FEDFUNDS',label:'FED RATE', price:5.33,   prev:5.33,   unit:'%',       live:false },
+  { id:'VIX',     label:'VIX',      price:28.4,   prev:28.4,   unit:'',        live:false },
+  { id:'EU10Y',   label:'EU10Y',    price:2.95,   prev:2.95,   unit:'%',       live:false },
+  { id:'EMCS',    label:'EM SPREAD',price:385,    prev:385,    unit:'bp',      live:false },
+  { id:'SPX',     label:'S&P 500',  price:5280,   prev:5280,   unit:'',        live:false },
+  { id:'XOM',     label:'XOM',      price:114.82, prev:114.82, unit:'$',       live:false },
+  { id:'LMT',     label:'LMT',      price:462.10, prev:462.10, unit:'$',       live:false },
+];
+let tickerData = TICK_SYMBOLS.map(t=>({...t}));
+const liveStatus = { eia:false, fred:false, alphav:false, worldbank:false };
+
+function jitterMarkets() {
+  const smult = SCENARIO_MULT[scenario];
+  tickerData = tickerData.map(t => {
+    const vol = t.id==='VIX'?0.018:t.id==='BRENT'||t.id==='WTI'?0.006:
+                t.id==='GOLD'?0.003:t.id==='EMCS'?0.008:0.004;
+    const drift = t.id==='BRENT'||t.id==='WTI'||t.id==='NG'?0.0002*(smult.oil-1):
+                  t.id==='VIX'?0.0003*(smult.stress-1):0;
+    const pct = (Math.random()-0.499)*vol + drift;
+    return { ...t, prev:t.price, price: parseFloat((t.price*(1+pct)).toFixed(t.price>100?1:3)) };
+  });
+  updateTicker();
+  updateSidebarMetrics();
+  updateShockNodes();
+}
+
+function updateTicker() {
+  const track = document.getElementById('tickerTrack');
+  if (!track) return;
+  const html = [...tickerData,...tickerData].map(t=>{
+    const delta = t.price - t.prev;
+    const pct = (Math.abs(delta)/t.prev*100).toFixed(2);
+    const dir = Math.abs(delta) < 0.001 ? 'flat' : delta>0?'up':'dn';
+    const arrow = dir==='up'?'▲':dir==='dn'?'▼':'—';
+    const pfx = t.unit.startsWith('$')?t.unit:'';
+    const sfx = !t.unit.startsWith('$')&&t.unit?' '+t.unit:'';
+    const dispPrice = t.price>1000 ? t.price.toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0}) :
+                      t.price>10   ? t.price.toFixed(2) : t.price.toFixed(3);
+    const dot = t.live ? `<span style="width:4px;height:4px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green);display:inline-block;margin-left:3px"></span>` : '';
+    return `<div class="tick-item">
+      <span class="tick-sym">${t.label}${dot}</span>
+      <span class="tick-val">${pfx}${dispPrice}${sfx}</span>
+      <span class="tick-chg ${dir}">${arrow}${pct}%</span>
+    </div>`;
+  }).join('');
+  track.innerHTML = html;
+  if (typeof updateLiveStatusBadge === 'function') updateLiveStatusBadge();
+}
+
+function updateSidebarMetrics() {
+  const sm = SCENARIO_MULT[scenario];
+  const b = tickerData.find(t=>t.id==='BRENT');
+  const w = tickerData.find(t=>t.id==='WTI');
+  const n = tickerData.find(t=>t.id==='NG');
+  const v = tickerData.find(t=>t.id==='VIX');
+  const d = tickerData.find(t=>t.id==='DXY');
+  const g = tickerData.find(t=>t.id==='GOLD');
+  const y = tickerData.find(t=>t.id==='US10Y');
+  const s = tickerData.find(t=>t.id==='EMCS');
+  const set = (id, val, cls) => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = val; el.className = 'metric-val ' + (cls||''); }
+  };
+  if(b) set('m-brent', `$${b.price.toFixed(2)}`, b.price>120?'up':b.price<90?'dn':'');
+  if(w) set('m-wti',   `$${w.price.toFixed(2)}`, w.price>115?'up':'');
+  if(n) set('m-lng',   `$${n.price.toFixed(2)}`, n.price>8?'up':'');
+  if(v) set('m-vix',   v.price.toFixed(1),       v.price>25?'warn':v.price>35?'dn':'');
+  if(d) set('m-dxy',   d.price.toFixed(2),       '');
+  if(g) set('m-gold',  `$${g.price.toLocaleString('en',{maximumFractionDigits:0})}`, g.price>2000?'up':'');
+  if(y) set('m-10y',   `${y.price.toFixed(2)}%`, '');
+  if(s) set('m-spread',`+${Math.round(s.price)}bp`, s.price>350?'dn':'warn');
+}
+
+function updateShockNodes() {
+  const sm = SCENARIO_MULT[scenario];
+  const brent = tickerData.find(t=>t.id==='BRENT')?.price||121;
+  const oilChg = ((brent/78)-1)*100;
+  const sn = id => document.getElementById(id);
+  if(sn('sn-oil'))     sn('sn-oil').textContent   = `+${oilChg.toFixed(0)}%`;
+  if(sn('sn-cpi'))     sn('sn-cpi').textContent   = `+${(3.8*sm.cpi).toFixed(1)}pp`;
+  if(sn('sn-rates'))   sn('sn-rates').textContent = `+${Math.round(200*sm.stress)}bp`;
+  if(sn('sn-gdp'))     sn('sn-gdp').textContent   = `${(-1.9*sm.gdp).toFixed(1)}%`;
+  if(sn('sn-em'))      sn('sn-em').textContent    = `-${(14*sm.fx).toFixed(0)}% FX`;
+  if(sn('sn-food'))    sn('sn-food').textContent  = `+${Math.round(27*sm.cpi)}%`;
+  document.getElementById('shock-scenario-label').textContent =
+    scenario==='base'?'⚡ BASE SCENARIO':scenario==='esc'?'🔴 ESCALATION ACTIVE':'🟢 DE-ESCALATION';
+}
+
+/* Shock impact list for bottom-right */
+function buildShockImpactList() {
+  const sm = SCENARIO_MULT[scenario];
+  const impacts = Object.entries(COUNTRIES)
+    .map(([name,data]) => ({
+      name, impact: data.stress * sm.stress * (data.oilDep>0 ? data.oilDep/100 : 0.05)
+    }))
+    .sort((a,b) => b.impact - a.impact)
+    .slice(0,10);
+  const max = impacts[0]?.impact||1;
+  const list = document.getElementById('shock-impact-list');
+  if (!list) return;
+  list.innerHTML = impacts.map(item => {
+    const pct = (item.impact/max)*100;
+    const color = item.impact/max>0.75?'var(--red)':item.impact/max>0.4?'var(--amber)':'var(--yellow)';
+    return `<div class="shock-impact-row">
+      <span class="shock-country-name">${item.name.length>14?item.name.slice(0,13)+'…':item.name}</span>
+      <div class="shock-bar-wrap"><div class="shock-bar" style="width:${pct}%;background:${color}"></div></div>
+      <span class="shock-impact-val" style="color:${color}">${item.impact.toFixed(1)}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════
+   GLOBE ENGINE
+   globe.gl: polygons · arcs · points
+   ═══════════════════════════════════════ */
+async function initGlobe() {
+  const el = document.getElementById('globeCanvas');
+  if (!el) return;
+
+  el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;
+    height:100%;font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:#2e5470;letter-spacing:.15em">LOADING GLOBE…</div>`;
+
+  let world;
+  try {
+    const resp = await fetch('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson');
+    world = await resp.json();
+  } catch(e) {
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:#ff3d4a;font-family:'IBM Plex Mono',monospace">⚠ Globe unavailable — check connection</div>`;
+    return;
+  }
+  geoJsonData = world;
+  el.innerHTML = '';
+
+  globeInstance = Globe()
+    (el)
+    .width(el.offsetWidth)
+    .height(el.offsetHeight)
+    .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+    .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png')
+    // Country polygons
+    .polygonsData(world.features)
+    .polygonAltitude(d => stressElevation(getCountryStress(d.properties.name)))
+    .polygonCapColor(d => stressColor(getCountryStress(d.properties.name)))
+    .polygonSideColor(() => 'rgba(0,0,0,.3)')
+    .polygonStrokeColor(() => 'rgba(14,36,56,.9)')
+    .polygonLabel(d => buildGlobeTooltip(d.properties.name))
+    .onPolygonClick(d => openCountryPanel(d.properties.name))
+    .onPolygonHover(d => {
+      const tt = document.getElementById('globe-tooltip');
+      if (!d || !d.properties?.name || !COUNTRIES[d.properties.name]) {
+        if (tt) tt.style.display='none'; return;
+      }
+      showGlobeTooltipHtml(d.properties.name);
+    })
+    // Conflict hotspot points
+    .pointsData(buildHotspotData())
+    .pointAltitude('altitude')
+    .pointColor('color')
+    .pointRadius('radius')
+    .pointLabel('name')
+    .pointsMerge(false)
+    // Shipping arc routes
+    .arcsData(buildShippingArcs())
+    .arcColor('color')
+    .arcDashLength(0.4)
+    .arcDashGap(0.15)
+    .arcDashAnimateTime(d => d.speed)
+    .arcAltitude('altitude')
+    .arcStroke('stroke')
+    .arcLabel('label')
+    // Chokepoint labels
+    .labelsData(buildChokeLabels())
+    .labelLat('lat')
+    .labelLng('lng')
+    .labelText('text')
+    .labelSize('size')
+    .labelColor('color')
+    .labelDotRadius('dotRadius')
+    .labelAltitude(0.03);
+
+  // Camera controls
+  globeInstance.controls().autoRotate = true;
+  globeInstance.controls().autoRotateSpeed = 0.35;
+  globeInstance.controls().enableZoom = true;
+  globeInstance.controls().minDistance = 150;
+  globeInstance.controls().maxDistance = 800;
+
+  el.addEventListener('mousedown', () => {
+    globeInstance.controls().autoRotate = false;
+    clearTimeout(window._globeSpin);
+    window._globeSpin = setTimeout(() => {
+      globeInstance.controls().autoRotate = true;
+    }, 5000);
+  });
+
+  window.addEventListener('resize', () => {
+    if (globeInstance) globeInstance.width(el.offsetWidth).height(el.offsetHeight);
+  });
+
+  // Position camera over Middle East
+  globeInstance.pointOfView({ lat:25, lng:45, altitude:2.2 }, 1500);
+}
+
+function buildHotspotData() {
+  return CONFLICT_ZONES.map(z => ({
+    lat: z.lat, lng: z.lng, name: z.name,
+    altitude: 0.01 + z.intensity/200,
+    radius: 0.4 + z.intensity/25,
+    color: z.color,
+  }));
+}
+
+function buildShippingArcs() {
+  const sm = SCENARIO_MULT[scenario];
+  const base = [
+    { src:[24,54], dst:[38,22], label:'Gulf → Mediterranean', speed:2800, color:'rgba(0,212,255,0.6)', stroke:0.5, altitude:0.3 },
+    { src:[24,54], dst:[22,88], label:'Gulf → India',         speed:2200, color:'rgba(0,212,255,0.5)', stroke:0.4, altitude:0.25 },
+    { src:[24,54], dst:[30,122], label:'Gulf → China',        speed:3500, color:'rgba(0,212,255,0.5)', stroke:0.4, altitude:0.35 },
+    { src:[55,-4], dst:[52,4],  label:'N. Atlantic Trade',    speed:3200, color:'rgba(100,180,255,0.4)',stroke:0.3,altitude:0.2 },
+    { src:[-34,18],dst:[52,4],  label:'Cape of Good Hope',    speed:4000, color:'rgba(245,166,35,0.5)',stroke:0.5, altitude:0.35 },
+    { src:[-34,18],dst:[51,-1], label:'Africa→Europe bypass', speed:4200, color:'rgba(245,166,35,0.5)',stroke:0.45,altitude:0.38 },
+    { src:[3.5,103],dst:[22,88],label:'Malacca Strait',       speed:2000, color:'rgba(0,212,255,0.4)', stroke:0.35,altitude:0.15 },
+    { src:[24,54], dst:[-34,18],label:'Gulf→Cape reroute',    speed:4500, color:'rgba(255,107,53,0.6)',stroke:0.5, altitude:0.4 },
+  ];
+  return base.map(a => ({
+    startLat:a.src[0], startLng:a.src[1],
+    endLat:a.dst[0],   endLng:a.dst[1],
+    label:a.label,
+    speed: sm.stress > 1.2 ? a.speed*0.7 : a.speed, // faster animation when disrupted
+    color: sm.stress > 1.2 && a.label.includes('Gulf') ? 'rgba(255,61,74,0.7)' : a.color,
+    stroke: a.stroke,
+    altitude: a.altitude,
+  }));
+}
+
+function buildChokeLabels() {
+  return Object.values(CHOKEPOINTS).map(c => ({
+    lat: c.lat, lng: c.lng,
+    text: c.name.split(' ').slice(-1)[0],
+    size: 0.4,
+    color: c.status==='risk'?'rgba(255,224,64,0.9)':c.status==='open'?'rgba(0,230,118,0.9)':'rgba(255,61,74,0.9)',
+    dotRadius: 0.3,
+  }));
+}
+
+function buildGlobeTooltip(name) {
+  const c = COUNTRIES[name];
+  if (!c) return `<div style="padding:6px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#6b96b8">${name}</div>`;
+  const stress = getCountryStress(name);
+  const [rl] = riskLabel(stress);
+  const sc = stressColor(stress,1).replace(/[\d.]+\)$/, '1)');
+  return `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;
+    background:#040d14;border:1px solid ${sc};padding:8px 11px;border-radius:2px;min-width:150px">
+    <strong style="color:${sc};display:block;font-size:11px;margin-bottom:5px">${name}</strong>
+    <div style="color:#6b96b8">Stress: <b style="color:${sc}">${stress.toFixed(1)}/10</b></div>
+    <div style="color:#6b96b8">CPI: <b style="color:#ff6b35">${c.cpi.toFixed(1)}%</b></div>
+    <div style="color:#6b96b8">GDP: <b style="color:${c.gdp<0?'#ff3d4a':'#00e676'}">${c.gdp>0?'+':''}${c.gdp.toFixed(1)}%</b></div>
+    <div style="color:#2e5470;margin-top:3px">${rl}</div>
+  </div>`;
+}
+
+function showGlobeTooltipHtml(name) {
+  const tt = document.getElementById('globe-tooltip');
+  if (!tt) return;
+  const c = COUNTRIES[name];
+  if (!c) { tt.style.display='none'; return; }
+  const stress = getCountryStress(name);
+  const sc = stressColor(stress,1).replace(/,[\d.]+\)$/, ',1)');
+  tt.innerHTML = `<strong style="color:${sc}">${name}</strong>
+    <div>Region: ${c.region}</div>
+    <div>Stress: ${stress.toFixed(1)}/10</div>
+    <div>CPI: ${c.cpi.toFixed(1)}%  |  GDP: ${c.gdp>0?'+':''}${c.gdp.toFixed(1)}%</div>
+    <div style="color:var(--text-dim);font-size:8px;margin-top:3px">Click for full analysis →</div>`;
+  tt.style.display = 'block';
+  tt.style.borderColor = sc;
+}
+
+function refreshGlobe() {
+  if (!globeInstance || !geoJsonData) return;
+  globeInstance
+    .polygonAltitude(d => stressElevation(getCountryStress(d.properties.name)))
+    .polygonCapColor(d => stressColor(getCountryStress(d.properties.name)))
+    .arcsData(buildShippingArcs())
+    .pointsData(buildHotspotData());
+}
+
+/* ═══════════════════════════════════════
+   LAYER ENGINE
+   Toggle between Macro · Market · Geo views
+   ═══════════════════════════════════════ */
+function setLayer(layer, el) {
+  activeLayer = layer;
+  document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  const badge = document.getElementById('activeBadge');
+  const labels = { macro:'MACRO LAYER', market:'MARKET LAYER', geo:'GEOPOLITICAL LAYER' };
+  const classes = { macro:'lb-macro', market:'lb-market', geo:'lb-geo' };
+  if (badge) { badge.textContent = labels[layer]; badge.className = `badge ${classes[layer]}`; }
+
+  // Re-color globe by different metric
+  if (globeInstance && geoJsonData) {
+    globeInstance.polygonCapColor(d => {
+      const name = d.properties.name;
+      const c = COUNTRIES[name];
+      if (!c) return 'rgba(14,36,56,.4)';
+      const sm = SCENARIO_MULT[scenario];
+      if (layer === 'macro') {
+        return stressColor(getCountryStress(name));
+      } else if (layer === 'market') {
+        // Color by oil dependency × price shock
+        const dep = Math.abs(c.oilDep)/100;
+        const shock = dep * (sm.oil - 1) * 8 + dep * 3;
+        return stressColor(Math.min(10, shock));
+      } else {
+        // Geopolitical: conflict intensity + sanctions
+        const geo = c.stress * sm.stress * (c.oilDep>0?1.2:0.5);
+        return stressColor(Math.min(10, geo));
+      }
+    });
+  }
+}
+
+function setScenario(sc, el) {
+  scenario = sc;
+  document.querySelectorAll('.scen-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  refreshGlobe();
+  buildShockImpactList();
+  updateShockNodes();
+  updateSidebarMetrics();
+  if (selectedCountry) openCountryPanel(selectedCountry);
+  // Update alert scroll text
+  const texts = {
+    base: 'Brent crude above $120 threshold · EM currency basket under pressure · Hormuz transit risk elevated · VIX > 28 signals elevated volatility',
+    esc:  '🔴 ESCALATION: Oil spike to $165+ projected · Hormuz closure imminent · EM sovereign stress rising · Global recession P=55%',
+    de:   '🟢 DE-ESCALATION: Ceasefire signals emerging · Oil retreat to $95 expected · Supply chains normalizing · Risk-on rotation anticipated',
+  };
+  document.getElementById('alertScrollText').textContent = texts[sc];
+}
+
+function flyToChokepoint(key) {
+  const cp = CHOKEPOINTS[key];
+  if (!cp || !globeInstance) return;
+  globeInstance.pointOfView({ lat:cp.lat, lng:cp.lng, altitude:0.8 }, 1200);
+}
+
+function updateWeight(key, val) {
+  weights[key] = +val;
+  const el = document.getElementById('w-'+key);
+  if (el) el.textContent = val;
+}
+
+function updateTimeHorizon(val) {
+  timeHorizon = +val;
+  const el = document.getElementById('timeLabel');
+  if (el) el.textContent = val===0?'NOW':`+${val}M`;
+  refreshGlobe();
+  if (selectedCountry) openCountryPanel(selectedCountry);
+}
+
+/* ═══════════════════════════════════════
+   COUNTRY DETAIL PANEL
+   ═══════════════════════════════════════ */
+function openCountryPanel(name) {
+  const c = COUNTRIES[name];
+  document.getElementById('country-placeholder').style.display = 'none';
+  document.getElementById('country-detail').style.display = 'flex';
+  selectedCountry = name;
+
+  const sm = SCENARIO_MULT[scenario];
+  const stress = getCountryStress(name);
+  const [riskLbl, riskCls] = riskLabel(stress);
+  const sc = stressColor(stress,1).replace(/,[\d.]+\)$/, ',1)');
+
+  document.getElementById('cd-name').textContent = name;
+  document.getElementById('cd-region').textContent = c ? c.region : '—';
+
+  const rb = document.getElementById('cd-risk-badge');
+  rb.textContent = riskLbl; rb.className = `cd-risk-badge ${riskCls}`;
+
+  const s = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+  if (c) {
+    const adjStress = stress;
+    const adjCpi   = (c.cpi * sm.cpi).toFixed(1);
+    const adjGdp   = (c.gdp * sm.gdp).toFixed(1);
+    const adjFxVol = (c.fxVol * sm.fx).toFixed(0);
+
+    s('cd-stress', adjStress.toFixed(1)+'/10');
+    s('cd-oildep', Math.abs(c.oilDep)+'%');
+    s('cd-cpi',    adjCpi+'%');
+    s('cd-gdp',    (adjGdp>0?'+':'')+adjGdp+'%');
+    s('cd-fxvol',  adjFxVol+'%');
+    s('cd-trade',  (c.trade>0?'+':'')+c.trade+'%');
+
+    document.getElementById('cd-stress').style.color = sc;
+    document.getElementById('cd-gdp').style.color = c.gdp*sm.gdp < 0 ? 'var(--red)':'var(--green)';
+    document.getElementById('cd-oildep').style.color = c.oilDep > 0 ? 'var(--amber)':'var(--green)';
+
+    buildCountryCharts(name, c, sm);
+    buildCountryInsights(name, c, sm, adjStress, adjCpi, adjGdp);
+  }
+}
+
+/* Mini ECharts in country panel */
+const cdCharts = {};
+function buildCountryCharts(name, c, sm) {
+  // Stress history (90 days simulated)
+  const stressBase = c.stress * sm.stress;
+  const stressHist = Array.from({length:30}, (_,i) => {
+    const t = 1-(i/30)*0.4;
+    return parseFloat((stressBase*t*(0.9+Math.random()*0.2)).toFixed(2));
+  }).reverse();
+
+  renderMiniChart('cd-stress-chart', stressHist, '#ff3d4a', 'Stress');
+
+  // CPI trajectory (12 months)
+  const cpiBase = c.cpi * sm.cpi;
+  const cpiHist = Array.from({length:12}, (_,i) => {
+    return parseFloat((cpiBase*(0.85+i*0.015+Math.random()*0.05)).toFixed(1));
+  });
+  renderMiniChart('cd-cpi-chart', cpiHist, '#ff6b35', 'CPI %');
+}
+
+function renderMiniChart(id, data, color, name) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (cdCharts[id]) { try{cdCharts[id].dispose();}catch(e){} }
+  const chart = echarts.init(el, null, {renderer:'canvas',backgroundColor:'transparent'});
+  cdCharts[id] = chart;
+  chart.setOption({
+    grid:{top:4,left:4,right:4,bottom:4},
+    xAxis:{type:'category',show:false,data:data.map((_,i)=>i)},
+    yAxis:{type:'value',show:false},
+    series:[{
+      type:'line', data, name,
+      smooth:true, symbol:'none',
+      lineStyle:{color,width:1.5},
+      areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,
+        colorStops:[{offset:0,color:color.replace(')',',0.3)').replace('rgb','rgba')},
+                   {offset:1,color:color.replace(')',',0)').replace('rgb','rgba')}]}},
+    }],
+    tooltip:{trigger:'axis',backgroundColor:'#040d14',borderColor:'#0e2438',textStyle:{color:'#e8f4fd',fontSize:9}},
+  });
+}
+
+/* AI-generated insights per country */
+const INSIGHT_TEMPLATES = {
+  oil_importer: (name, cpi, oil) =>
+    `<strong>Energy Dependency Risk</strong> ${name} imports ${oil}% of its oil. With Brent at $${(121*(SCENARIO_MULT[scenario].oil)).toFixed(0)}/bbl, energy import bills are rising sharply, adding +${(cpi*0.3).toFixed(1)}pp to domestic inflation.`,
+  oil_exporter: (name) =>
+    `<strong>Energy Revenue Upside</strong> As a net oil exporter, ${name} benefits from elevated crude prices. Budget surpluses are expanding. Watch for FX appreciation and SWF deployment.`,
+  em_fx: (name, fxVol) =>
+    `<strong>Currency Pressure</strong> ${name}'s currency shows ${fxVol}% implied volatility. Capital outflows accelerating as USD strengthens. Potential IMF engagement if reserves fall below 3 months import cover.`,
+  food_risk: (name, cpi) =>
+    `<strong>Food Security Alert</strong> With CPI at ${cpi.toFixed(1)}%, food price sensitivity is elevated. ${name} is exposed to fertilizer (gas-based) and shipping cost pass-through. Risk of social instability if prices exceed 2x baseline.`,
+  trade_imbalance: (name, trade) =>
+    `<strong>Trade Balance Stress</strong> Current account deficit of ${Math.abs(trade).toFixed(1)}% of GDP is widening. Requires sustained capital inflows to finance. FX pressure building.`,
+  conflict_zone: (name) =>
+    `<strong>Conflict Exposure</strong> ${name} is in or adjacent to an active conflict zone. Infrastructure damage, capital flight, and supply chain disruption are material risks. Regional contagion index elevated.`,
+};
+
+function buildCountryInsights(name, c, sm, stress, cpi, gdp) {
+  const insights = [];
+  if (c.oilDep > 0) {
+    insights.push(INSIGHT_TEMPLATES.oil_importer(name, parseFloat(cpi), c.oilDep));
+  } else {
+    insights.push(INSIGHT_TEMPLATES.oil_exporter(name));
+  }
+  if (c.fxVol > 20) {
+    insights.push(INSIGHT_TEMPLATES.em_fx(name, (c.fxVol*sm.fx).toFixed(0)));
+  }
+  if (c.cpi > 10 || parseFloat(cpi) > 10) {
+    insights.push(INSIGHT_TEMPLATES.food_risk(name, parseFloat(cpi)));
+  }
+  if (c.trade < -8) {
+    insights.push(INSIGHT_TEMPLATES.trade_imbalance(name, c.trade));
+  }
+  const isConflict = CONFLICT_ZONES.some(z => z.name.includes(name.split(' ')[0]));
+  if (isConflict) {
+    insights.push(INSIGHT_TEMPLATES.conflict_zone(name));
+  }
+
+  document.getElementById('cd-insights-body').innerHTML =
+    insights.slice(0,3).map(t => `<div class="cd-insight-item">${t}</div>`).join('');
+}
+
+/* ═══════════════════════════════════════
+   ALERT ENGINE
+   Monitor thresholds, fire alerts dynamically
+   ═══════════════════════════════════════ */
+const alertMessages = [
+  { type:'danger', title:'⚠ BRENT > $120', text:'Energy import costs spiking. EM central banks face stagflation dilemma.' },
+  { type:'warn',   title:'⚡ VIX > 28',     text:'Volatility index elevated. Risk-off sentiment accelerating. USD bid.' },
+  { type:'warn',   title:'⚡ EM SPREAD +385bp', text:'EM credit spreads at crisis levels. Funding stress for frontier markets.' },
+  { type:'info',   title:'ℹ HORMUZ RISK',  text:'Hormuz transit insurance surcharges +280%. Rerouting via Cape +15 days.' },
+  { type:'danger', title:'⚠ DXY > 104',    text:'USD strength pressuring EM FX. EGP, PKR, TRY under most stress.' },
+];
+let alertIdx = 0;
+function buildAlertList() {
+  const list = document.querySelector('#left-panel .alert-list');
+  if (!list) return;
+  list.innerHTML = alertMessages.map(a =>
+    `<div class="alert-item ${a.type==='warn'?'warn':a.type==='info'?'info':''}">
+      <strong>${a.title}</strong>${a.text}
+    </div>`
+  ).join('');
+}
+
+// Alert section in left panel (add after chokepoints)
+function injectAlertPanel() {
+  const lp = document.getElementById('left-panel');
+  if (!lp) return;
+  const div = document.createElement('div');
+  div.className = 'panel-section';
+  div.innerHTML = `<div class="panel-title">Live Alerts</div><div class="alert-list"></div>`;
+  lp.appendChild(div);
+  const al = div.querySelector('.alert-list');
+  al.innerHTML = alertMessages.map(a =>
+    `<div class="alert-item ${a.type==='warn'?'warn':a.type==='info'?'info':''}">
+      <strong>${a.title}</strong>${a.text}
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════
+   CLOCK
+   ═══════════════════════════════════════ */
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('clockDisplay').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+
+/* ═══════════════════════════════════════
+   INITIALISE ALL ENGINES
+   ═══════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════
+   LIVE MARKET DATA ENGINE — GEO INTEL PLATFORM
+   Calls shared Vercel proxy endpoints:
+     /api/eia-oil      → Brent · WTI · Natural Gas
+     /api/market-data  → Alpha Vantage + FRED + World Bank
+   Updates: ticker seeds · sidebar metrics · shock nodes
+            country stress · alert strip · globe colors
+   Fires on load + every 30 minutes automatically.
+═══════════════════════════════════════════════════════ */
+
+async function fetchLiveMarketData() {
+  try {
+    const [eiaRes, mktRes] = await Promise.allSettled([
+      fetch('/api/eia-oil').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch('/api/market-data?type=all').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+    ]);
+
+    // EIA: Brent · WTI · Natural Gas
+    if (eiaRes.status === 'fulfilled') {
+      const e = eiaRes.value;
+      liveStatus.eia = true;
+      setTickerLive('BRENT', e.price);
+      if (e.wti && e.wti.price)    setTickerLive('WTI', e.wti.price);
+      if (e.natgas && e.natgas.price) setTickerLive('NG', e.natgas.price);
+      applyOilPriceToCountries(e.price);
+      updateAlertStrip(e.price, null, null);
+    }
+
+    // Alpha Vantage + FRED + World Bank
+    if (mktRes.status === 'fulfilled') {
+      const m = mktRes.value.results || {};
+
+      // Equities
+      if (m.equities && m.equities.length) {
+        liveStatus.alphav = true;
+        const idMap = { GLD:'GOLD', SPY:'SPX', XOM:'XOM', LMT:'LMT' };
+        m.equities.forEach(function(eq) {
+          const id = idMap[eq.symbol] || eq.symbol;
+          setTickerLive(id, eq.price);
+        });
+        const spy = m.equities.find(function(e) { return e.symbol === 'SPY'; });
+        if (spy) setTickerLive('SPX', parseFloat((spy.price * 10.05).toFixed(0)));
+      }
+
+      // FRED macro
+      if (m.macro && m.macro.length) {
+        liveStatus.fred = true;
+        const find = function(id) { return m.macro.find(function(x) { return x.id === id; }); };
+        const fedRate = find('FEDFUNDS');
+        const us10y   = find('DGS10') || find('T10Y2Y');
+        const cpiData = find('CPIAUCSL');
+        const gasData = find('DHHNGSP');
+
+        if (fedRate) {
+          setTickerLive('FEDFUNDS', fedRate.value);
+          const snRates = document.getElementById('sn-rates');
+          if (snRates) snRates.textContent = '+' + Math.round(200 * SCENARIO_MULT[scenario].stress) + 'bp';
+        }
+        if (us10y) {
+          setTickerLive('US10Y', us10y.value);
+          const el = document.getElementById('m-10y');
+          if (el) { el.textContent = us10y.value.toFixed(2) + '%'; el.className = 'metric-val'; }
+        }
+        if (gasData && !liveStatus.eia) setTickerLive('NG', gasData.value);
+        if (cpiData) updateShockCPIFromFRED(cpiData.value, cpiData.prev);
+
+        const brent = tickerData.find(function(t) { return t.id === 'BRENT'; });
+        updateAlertStrip(brent ? brent.price : null, fedRate ? fedRate.value : null, us10y ? us10y.value : null);
+      }
+
+      // World Bank GDP
+      if (m.worldbank && m.worldbank.length) {
+        liveStatus.worldbank = true;
+        applyWorldBankToCountries(m.worldbank);
+      }
+
+      // Forex: USD/EUR → approximate DXY direction
+      if (m.forex && m.forex.length) {
+        const eur = m.forex.find(function(f) { return f.pair === 'USD/EUR'; });
+        if (eur) setTickerLive('DXY', parseFloat((1 / eur.rate * 100).toFixed(2)));
+      }
+    }
+
+    // Refresh all displays with live data
+    updateTicker();
+    updateSidebarMetrics();
+    updateShockNodes();
+    if (selectedCountry) openCountryPanel(selectedCountry);
+
+  } catch(err) {
+    console.warn('[GeoIntel] fetchLiveMarketData:', err.message);
+  }
+}
+
+function setTickerLive(id, price) {
+  tickerData = tickerData.map(function(t) {
+    if (t.id !== id) return t;
+    return Object.assign({}, t, { prev: t.price, price: parseFloat(price), live: true });
+  });
+}
+
+function updateLiveStatusBadge() {
+  const badge = document.getElementById('liveStatusBadge');
+  if (!badge) return;
+  const anyLive = Object.values(liveStatus).some(Boolean);
+  const sources = [
+    liveStatus.eia ? 'EIA' : null,
+    liveStatus.fred ? 'FRED' : null,
+    liveStatus.alphav ? 'AV' : null,
+    liveStatus.worldbank ? 'WB' : null,
+  ].filter(Boolean);
+  badge.textContent = anyLive ? ('● LIVE: ' + sources.join(' · ')) : '● SIM';
+  badge.style.color = anyLive ? 'var(--green)' : 'var(--text-dim)';
+}
+
+function applyOilPriceToCountries(brentPrice) {
+  const baseline = 78;
+  const shock = (brentPrice - baseline) / baseline;
+  Object.keys(COUNTRIES).forEach(function(name) {
+    const c = COUNTRIES[name];
+    if (c.oilDep > 0) {
+      c._oilStressMod = Math.min(2.5, Math.max(0, shock * (c.oilDep / 100) * 3.5));
+    } else {
+      c._oilStressMod = -Math.min(0.5, shock * 0.3);
+    }
+  });
+  if (globeInstance && geoJsonData) refreshGlobe();
+}
+
+// Override getCountryStress to include live oil modifier
+const _baseGetCountryStress = getCountryStress;
+function getCountryStress(name) {
+  const base = _baseGetCountryStress(name);
+  const c = COUNTRIES[name];
+  if (!c || c._oilStressMod === undefined) return base;
+  return Math.min(10, Math.max(0, base + c._oilStressMod));
+}
+
+function applyWorldBankToCountries(wbData) {
+  const regionMap = {
+    'North America': ['United States of America', 'Canada'],
+    'Europe':        ['Germany', 'France', 'Italy', 'Spain', 'United Kingdom'],
+    'Middle East':   ['Saudi Arabia', 'United Arab Emirates', 'Kuwait', 'Qatar'],
+    'East Asia':     ['China', 'Japan', 'South Korea'],
+    'South Asia':    ['India', 'Pakistan', 'Bangladesh'],
+    'Africa':        ['Nigeria', 'South Africa', 'Kenya', 'Ghana'],
+    'South America': ['Brazil', 'Colombia', 'Chile'],
+    'Oceania':       ['Australia', 'New Zealand'],
+  };
+  wbData.forEach(function(wb) {
+    if (wb.gdpGrowth === null) return;
+    var countries = regionMap[wb.region] || [];
+    countries.forEach(function(cname) {
+      if (COUNTRIES[cname]) COUNTRIES[cname]._wbGdpBaseline = wb.gdpGrowth;
+    });
+  });
+}
+
+function updateShockCPIFromFRED(current, prev) {
+  if (!current || !prev) return;
+  const yoy = parseFloat(((current - prev) / prev * 100).toFixed(1));
+  if (isNaN(yoy)) return;
+  const sm = SCENARIO_MULT[scenario];
+  const el = document.getElementById('sn-cpi');
+  if (el) el.textContent = '+' + (yoy * sm.cpi).toFixed(1) + 'pp';
+}
+
+function updateAlertStrip(brent, fedRate, us10y) {
+  const strip = document.getElementById('alertScrollText');
+  if (!strip) return;
+  const sc = scenario;
+  if (sc === 'esc') {
+    strip.textContent = '\uD83D\uDD34 ESCALATION: Oil spike to $165+ projected \u00B7 Hormuz closure imminent \u00B7 EM sovereign stress rising \u00B7 Global recession P=55%';
+    return;
+  }
+  if (sc === 'de') {
+    strip.textContent = '\uD83D\uDFE2 DE-ESCALATION: Ceasefire signals emerging \u00B7 Oil retreating toward $95 \u00B7 Risk assets recovering \u00B7 EM FX stabilizing';
+    return;
+  }
+  const parts = [];
+  if (brent) parts.push('Brent $' + brent.toFixed(1) + '/bbl' + (brent > 120 ? ' \u26A0 ABOVE $120' : ''));
+  parts.push('Hormuz transit risk elevated \u00B7 EM currency basket under pressure');
+  if (fedRate) parts.push('Fed funds ' + fedRate.toFixed(2) + '%');
+  if (us10y)   parts.push('US 10Y ' + us10y.toFixed(2) + '%');
+  parts.push('Geopolitical stress index elevated across MENA');
+  strip.textContent = parts.join(' \u00B7 ');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Init ticker
+  updateTicker();
+
+  // Inject alerts
+  injectAlertPanel();
+
+  // Shock impact
+  buildShockImpactList();
+  updateShockNodes();
+
+  // Clock
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Market streaming — every 2.5 seconds
+  setInterval(jitterMarkets, 2500);
+
+  // Globe — async load
+  initGlobe();
+
+  // Refresh globe colors every 8 seconds
+  setInterval(() => {
+    if (globeInstance) refreshGlobe();
+  }, 8000);
+
+  // Rebuild shock list every 15 seconds
+  setInterval(buildShockImpactList, 15000);
+
+  // Set initial active layer
+  setLayer('macro', document.querySelector('.layer-btn.macro'));
+
+  // Fetch live market data on load, then every 30 minutes
+  fetchLiveMarketData();
+  setInterval(fetchLiveMarketData, 30 * 60 * 1000);
+});
+</script>
+</body>
+</html>
