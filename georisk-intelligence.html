@@ -1087,21 +1087,25 @@ function getCountryStress(name) {
    STREAMING SIMULATION ENGINE
    Mimics real-time data feed with random walks
    ═══════════════════════════════════════ */
+// Seed values — overwritten by fetchLiveMarketData() on load
+// EIA: BRENT/WTI/NG | Alpha Vantage: GOLD/SPX/XOM/LMT | FRED: US10Y/FEDFUNDS/DXY
 const TICK_SYMBOLS = [
-  { id:'BRENT', label:'BRENT', price:121.88, prev:121.88, unit:'$/bbl' },
-  { id:'WTI',   label:'WTI',   price:118.20, prev:118.20, unit:'$/bbl' },
-  { id:'VIX',   label:'VIX',   price:28.4,  prev:28.4,  unit:'' },
-  { id:'DXY',   label:'USD IDX',price:104.82,prev:104.82,unit:'' },
-  { id:'GOLD',  label:'GOLD',  price:2318,  prev:2318,  unit:'$/oz' },
-  { id:'NG',    label:'NAT GAS',price:9.42, prev:9.42,  unit:'$/MMBtu'},
-  { id:'US10Y', label:'US10Y', price:4.38,  prev:4.38,  unit:'%' },
-  { id:'EU10Y', label:'EU10Y', price:2.95,  prev:2.95,  unit:'%' },
-  { id:'EMCS',  label:'EM SPREAD',price:385,prev:385,   unit:'bp' },
-  { id:'SPX',   label:'SPX',   price:5280,  prev:5280,  unit:'' },
-  { id:'HSI',   label:'HANG SENG',price:17840,prev:17840,unit:'' },
-  { id:'NIKKEI',label:'NIKKEI',price:38420, prev:38420, unit:'' },
+  { id:'BRENT',   label:'BRENT',    price:121.88, prev:121.88, unit:'$/bbl',   live:false },
+  { id:'WTI',     label:'WTI',      price:118.20, prev:118.20, unit:'$/bbl',   live:false },
+  { id:'NG',      label:'NAT GAS',  price:9.42,   prev:9.42,   unit:'$/MMBtu', live:false },
+  { id:'GOLD',    label:'GOLD',     price:2318,   prev:2318,   unit:'$/oz',    live:false },
+  { id:'DXY',     label:'USD IDX',  price:104.82, prev:104.82, unit:'',        live:false },
+  { id:'US10Y',   label:'US 10Y',   price:4.38,   prev:4.38,   unit:'%',       live:false },
+  { id:'FEDFUNDS',label:'FED RATE', price:5.33,   prev:5.33,   unit:'%',       live:false },
+  { id:'VIX',     label:'VIX',      price:28.4,   prev:28.4,   unit:'',        live:false },
+  { id:'EU10Y',   label:'EU10Y',    price:2.95,   prev:2.95,   unit:'%',       live:false },
+  { id:'EMCS',    label:'EM SPREAD',price:385,    prev:385,    unit:'bp',      live:false },
+  { id:'SPX',     label:'S&P 500',  price:5280,   prev:5280,   unit:'',        live:false },
+  { id:'XOM',     label:'XOM',      price:114.82, prev:114.82, unit:'$',       live:false },
+  { id:'LMT',     label:'LMT',      price:462.10, prev:462.10, unit:'$',       live:false },
 ];
 let tickerData = TICK_SYMBOLS.map(t=>({...t}));
+const liveStatus = { eia:false, fred:false, alphav:false, worldbank:false };
 
 function jitterMarkets() {
   const smult = SCENARIO_MULT[scenario];
@@ -1130,13 +1134,15 @@ function updateTicker() {
     const sfx = !t.unit.startsWith('$')&&t.unit?' '+t.unit:'';
     const dispPrice = t.price>1000 ? t.price.toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0}) :
                       t.price>10   ? t.price.toFixed(2) : t.price.toFixed(3);
+    const dot = t.live ? `<span style="width:4px;height:4px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green);display:inline-block;margin-left:3px"></span>` : '';
     return `<div class="tick-item">
-      <span class="tick-sym">${t.label}</span>
+      <span class="tick-sym">${t.label}${dot}</span>
       <span class="tick-val">${pfx}${dispPrice}${sfx}</span>
       <span class="tick-chg ${dir}">${arrow}${pct}%</span>
     </div>`;
   }).join('');
   track.innerHTML = html;
+  if (typeof updateLiveStatusBadge === 'function') updateLiveStatusBadge();
 }
 
 function updateSidebarMetrics() {
@@ -1629,6 +1635,195 @@ function updateClock() {
 /* ═══════════════════════════════════════
    INITIALISE ALL ENGINES
    ═══════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════
+   LIVE MARKET DATA ENGINE — GEO INTEL PLATFORM
+   Calls shared Vercel proxy endpoints:
+     /api/eia-oil      → Brent · WTI · Natural Gas
+     /api/market-data  → Alpha Vantage + FRED + World Bank
+   Updates: ticker seeds · sidebar metrics · shock nodes
+            country stress · alert strip · globe colors
+   Fires on load + every 30 minutes automatically.
+═══════════════════════════════════════════════════════ */
+
+async function fetchLiveMarketData() {
+  try {
+    const [eiaRes, mktRes] = await Promise.allSettled([
+      fetch('/api/eia-oil').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch('/api/market-data?type=all').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+    ]);
+
+    // EIA: Brent · WTI · Natural Gas
+    if (eiaRes.status === 'fulfilled') {
+      const e = eiaRes.value;
+      liveStatus.eia = true;
+      setTickerLive('BRENT', e.price);
+      if (e.wti && e.wti.price)    setTickerLive('WTI', e.wti.price);
+      if (e.natgas && e.natgas.price) setTickerLive('NG', e.natgas.price);
+      applyOilPriceToCountries(e.price);
+      updateAlertStrip(e.price, null, null);
+    }
+
+    // Alpha Vantage + FRED + World Bank
+    if (mktRes.status === 'fulfilled') {
+      const m = mktRes.value.results || {};
+
+      // Equities
+      if (m.equities && m.equities.length) {
+        liveStatus.alphav = true;
+        const idMap = { GLD:'GOLD', SPY:'SPX', XOM:'XOM', LMT:'LMT' };
+        m.equities.forEach(function(eq) {
+          const id = idMap[eq.symbol] || eq.symbol;
+          setTickerLive(id, eq.price);
+        });
+        const spy = m.equities.find(function(e) { return e.symbol === 'SPY'; });
+        if (spy) setTickerLive('SPX', parseFloat((spy.price * 10.05).toFixed(0)));
+      }
+
+      // FRED macro
+      if (m.macro && m.macro.length) {
+        liveStatus.fred = true;
+        const find = function(id) { return m.macro.find(function(x) { return x.id === id; }); };
+        const fedRate = find('FEDFUNDS');
+        const us10y   = find('DGS10') || find('T10Y2Y');
+        const cpiData = find('CPIAUCSL');
+        const gasData = find('DHHNGSP');
+
+        if (fedRate) {
+          setTickerLive('FEDFUNDS', fedRate.value);
+          const snRates = document.getElementById('sn-rates');
+          if (snRates) snRates.textContent = '+' + Math.round(200 * SCENARIO_MULT[scenario].stress) + 'bp';
+        }
+        if (us10y) {
+          setTickerLive('US10Y', us10y.value);
+          const el = document.getElementById('m-10y');
+          if (el) { el.textContent = us10y.value.toFixed(2) + '%'; el.className = 'metric-val'; }
+        }
+        if (gasData && !liveStatus.eia) setTickerLive('NG', gasData.value);
+        if (cpiData) updateShockCPIFromFRED(cpiData.value, cpiData.prev);
+
+        const brent = tickerData.find(function(t) { return t.id === 'BRENT'; });
+        updateAlertStrip(brent ? brent.price : null, fedRate ? fedRate.value : null, us10y ? us10y.value : null);
+      }
+
+      // World Bank GDP
+      if (m.worldbank && m.worldbank.length) {
+        liveStatus.worldbank = true;
+        applyWorldBankToCountries(m.worldbank);
+      }
+
+      // Forex: USD/EUR → approximate DXY direction
+      if (m.forex && m.forex.length) {
+        const eur = m.forex.find(function(f) { return f.pair === 'USD/EUR'; });
+        if (eur) setTickerLive('DXY', parseFloat((1 / eur.rate * 100).toFixed(2)));
+      }
+    }
+
+    // Refresh all displays with live data
+    updateTicker();
+    updateSidebarMetrics();
+    updateShockNodes();
+    if (selectedCountry) openCountryPanel(selectedCountry);
+
+  } catch(err) {
+    console.warn('[GeoIntel] fetchLiveMarketData:', err.message);
+  }
+}
+
+function setTickerLive(id, price) {
+  tickerData = tickerData.map(function(t) {
+    if (t.id !== id) return t;
+    return Object.assign({}, t, { prev: t.price, price: parseFloat(price), live: true });
+  });
+}
+
+function updateLiveStatusBadge() {
+  const badge = document.getElementById('liveStatusBadge');
+  if (!badge) return;
+  const anyLive = Object.values(liveStatus).some(Boolean);
+  const sources = [
+    liveStatus.eia ? 'EIA' : null,
+    liveStatus.fred ? 'FRED' : null,
+    liveStatus.alphav ? 'AV' : null,
+    liveStatus.worldbank ? 'WB' : null,
+  ].filter(Boolean);
+  badge.textContent = anyLive ? ('● LIVE: ' + sources.join(' · ')) : '● SIM';
+  badge.style.color = anyLive ? 'var(--green)' : 'var(--text-dim)';
+}
+
+function applyOilPriceToCountries(brentPrice) {
+  const baseline = 78;
+  const shock = (brentPrice - baseline) / baseline;
+  Object.keys(COUNTRIES).forEach(function(name) {
+    const c = COUNTRIES[name];
+    if (c.oilDep > 0) {
+      c._oilStressMod = Math.min(2.5, Math.max(0, shock * (c.oilDep / 100) * 3.5));
+    } else {
+      c._oilStressMod = -Math.min(0.5, shock * 0.3);
+    }
+  });
+  if (globeInstance && geoJsonData) refreshGlobe();
+}
+
+// Override getCountryStress to include live oil modifier
+const _baseGetCountryStress = getCountryStress;
+function getCountryStress(name) {
+  const base = _baseGetCountryStress(name);
+  const c = COUNTRIES[name];
+  if (!c || c._oilStressMod === undefined) return base;
+  return Math.min(10, Math.max(0, base + c._oilStressMod));
+}
+
+function applyWorldBankToCountries(wbData) {
+  const regionMap = {
+    'North America': ['United States of America', 'Canada'],
+    'Europe':        ['Germany', 'France', 'Italy', 'Spain', 'United Kingdom'],
+    'Middle East':   ['Saudi Arabia', 'United Arab Emirates', 'Kuwait', 'Qatar'],
+    'East Asia':     ['China', 'Japan', 'South Korea'],
+    'South Asia':    ['India', 'Pakistan', 'Bangladesh'],
+    'Africa':        ['Nigeria', 'South Africa', 'Kenya', 'Ghana'],
+    'South America': ['Brazil', 'Colombia', 'Chile'],
+    'Oceania':       ['Australia', 'New Zealand'],
+  };
+  wbData.forEach(function(wb) {
+    if (wb.gdpGrowth === null) return;
+    var countries = regionMap[wb.region] || [];
+    countries.forEach(function(cname) {
+      if (COUNTRIES[cname]) COUNTRIES[cname]._wbGdpBaseline = wb.gdpGrowth;
+    });
+  });
+}
+
+function updateShockCPIFromFRED(current, prev) {
+  if (!current || !prev) return;
+  const yoy = parseFloat(((current - prev) / prev * 100).toFixed(1));
+  if (isNaN(yoy)) return;
+  const sm = SCENARIO_MULT[scenario];
+  const el = document.getElementById('sn-cpi');
+  if (el) el.textContent = '+' + (yoy * sm.cpi).toFixed(1) + 'pp';
+}
+
+function updateAlertStrip(brent, fedRate, us10y) {
+  const strip = document.getElementById('alertScrollText');
+  if (!strip) return;
+  const sc = scenario;
+  if (sc === 'esc') {
+    strip.textContent = '\uD83D\uDD34 ESCALATION: Oil spike to $165+ projected \u00B7 Hormuz closure imminent \u00B7 EM sovereign stress rising \u00B7 Global recession P=55%';
+    return;
+  }
+  if (sc === 'de') {
+    strip.textContent = '\uD83D\uDFE2 DE-ESCALATION: Ceasefire signals emerging \u00B7 Oil retreating toward $95 \u00B7 Risk assets recovering \u00B7 EM FX stabilizing';
+    return;
+  }
+  const parts = [];
+  if (brent) parts.push('Brent $' + brent.toFixed(1) + '/bbl' + (brent > 120 ? ' \u26A0 ABOVE $120' : ''));
+  parts.push('Hormuz transit risk elevated \u00B7 EM currency basket under pressure');
+  if (fedRate) parts.push('Fed funds ' + fedRate.toFixed(2) + '%');
+  if (us10y)   parts.push('US 10Y ' + us10y.toFixed(2) + '%');
+  parts.push('Geopolitical stress index elevated across MENA');
+  strip.textContent = parts.join(' \u00B7 ');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Init ticker
   updateTicker();
@@ -1660,6 +1855,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Set initial active layer
   setLayer('macro', document.querySelector('.layer-btn.macro'));
+
+  // Fetch live market data on load, then every 30 minutes
+  fetchLiveMarketData();
+  setInterval(fetchLiveMarketData, 30 * 60 * 1000);
 });
 </script>
 </body>
