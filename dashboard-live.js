@@ -1,81 +1,37 @@
 /**
  * LIVE DATA CONTROLLER — dashboard-live.js
  * ─────────────────────────────────────────
- * Handles API polling and WebSocket streaming for live market prices
- * and geopolitical news feed.
+ * Handles API polling for live market prices and geopolitical news feed.
+ * Feeds the #geopolitical-feed panel and #feedStatusDot in index.html.
  *
- * STATUS: PAUSED — auto-init disabled pending /api/market.js + Finnhub key setup.
- * DO NOT DELETE. This will be fully wired in Step 3.
- *
- * INTEGRATION PLAN:
- *   Step 3a → /api/market.js (Finnhub proxy) deployed to Vercel
- *   Step 3b → FINNHUB_API_KEY added to Vercel Environment Variables
- *   Step 3c → DashboardLive.init() called from index.html DOMContentLoaded
- *   Step 3d → Finnhub WebSocket replaces polling for real-time equity prices
- *
- * FINNHUB FREE TIER LIMITS:
- *   REST:      60 API calls/minute
- *   WebSocket: Real-time trades, US stocks, no delay
- *   News:      Company news, general news, last 7 days
- *   Get key:   https://finnhub.io/register (free, instant)
+ * Polls /api/market (Finnhub proxy) every 30 seconds.
+ * Updates the Live Market News section automatically on load.
  */
 
 const DashboardLive = {
 
-  /* ── Configuration ── */
   config: {
-    endpoint:    '/api/market',  // Vercel serverless proxy → see /api/market.js
-    wsEndpoint:  'wss://ws.finnhub.io', // WebSocket for real-time prices
-    refreshRate: 30000,          // 30 sec REST polling fallback (free tier safe)
-    activeSymbol:'SPY',          // Default symbol — overridden by setSymbol()
-
-    // Symbols shown in the ticker strip — maps to existing tickerData in index.html
-    watchlist: ['XOM', 'LMT', 'RTX', 'DAL', 'GLD', 'SPY'],
+    endpoint:    '/api/market',
+    refreshRate: 30000,        // 30s REST polling (Finnhub free tier: 60 calls/min)
+    activeSymbol:'SPY',
+    watchlist:   ['XOM', 'LMT', 'RTX', 'DAL', 'GLD', 'SPY'],
   },
 
-  // Internal state
   _pollingTimer: null,
-  _ws:           null,
-  _wsConnected:  false,
+  _newsTimer:    null,
 
-  /* ─────────────────────────────────────────────
-     INIT — called from index.html DOMContentLoaded
-     Will be enabled in Step 3.
-  ───────────────────────────────────────────── */
+  /* ── INIT ── */
   init() {
     console.log('[DashboardLive] Initializing…');
-    this.fetchData();          // immediate first load
-    this.startPolling();       // REST fallback every 30s
-    this.connectWebSocket();   // real-time WebSocket (Finnhub)
+    this.fetchNewsAndPrices();
+    this.startPolling();
   },
 
-  /* ─────────────────────────────────────────────
-     REST POLLING — fallback when WebSocket is down
-  ───────────────────────────────────────────── */
-  async fetchData() {
-    try {
-      const res = await fetch(
-        `${this.config.endpoint}?symbol=${this.config.activeSymbol}`
-      );
-
-      if (!res.ok) throw new Error(`/api/market returned ${res.status}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      this.updatePriceUI(data);
-      if (data.news && data.news.length) {
-        this.updateGeopoliticalNews(data.news);
-      }
-
-    } catch (err) {
-      console.warn('[DashboardLive] fetchData error:', err.message);
-    }
-  },
-
+  /* ── POLLING ── */
   startPolling() {
     clearInterval(this._pollingTimer);
     this._pollingTimer = setInterval(
-      () => this.fetchData(),
+      () => this.fetchNewsAndPrices(),
       this.config.refreshRate
     );
   },
@@ -85,80 +41,31 @@ const DashboardLive = {
     this._pollingTimer = null;
   },
 
-  /* ─────────────────────────────────────────────
-     WEBSOCKET — Finnhub real-time trade stream
-     Upgrades the ticker strip from polled to live.
-  ───────────────────────────────────────────── */
-  connectWebSocket() {
-    // WS token is injected by /api/market.js as a short-lived token
-    // so the Finnhub key never appears in client-side JS
-    fetch('/api/market?action=ws-token')
-      .then(r => r.json())
-      .then(({ wsToken }) => {
-        if (!wsToken) {
-          console.warn('[DashboardLive] No WS token — staying on REST polling');
-          return;
-        }
-        this._openWebSocket(wsToken);
-      })
-      .catch(err => {
-        console.warn('[DashboardLive] WS token fetch failed:', err.message);
-      });
-  },
+  /* ── MAIN FETCH ── */
+  async fetchNewsAndPrices() {
+    try {
+      const res = await fetch(`${this.config.endpoint}?symbol=${this.config.activeSymbol}`);
+      if (!res.ok) throw new Error(`/api/market returned ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
 
-  _openWebSocket(token) {
-    const url = `${this.config.wsEndpoint}?token=${token}`;
-    this._ws = new WebSocket(url);
+      // Update price display if elements exist
+      this.updatePriceUI(data);
 
-    this._ws.addEventListener('open', () => {
-      this._wsConnected = true;
-      console.log('[DashboardLive] WebSocket connected');
-
-      // Subscribe to each symbol in watchlist
-      this.config.watchlist.forEach(symbol => {
-        this._ws.send(JSON.stringify({ type: 'subscribe', symbol }));
-      });
-
-      // Once WS is up, slow down REST polling to reduce API calls
-      clearInterval(this._pollingTimer);
-      this._pollingTimer = setInterval(
-        () => this.fetchData(),
-        120000   // 2 min — only for news + fallback
-      );
-    });
-
-    this._ws.addEventListener('message', e => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type !== 'trade' || !msg.data) return;
-
-        msg.data.forEach(trade => {
-          // trade: { s: symbol, p: price, t: timestamp, v: volume }
-          this.updateTickerFromWS(trade.s, trade.p);
-        });
-      } catch (err) {
-        // Ignore malformed frames
+      // Update news feed
+      if (data.news && data.news.length) {
+        this.updateGeopoliticalNews(data.news);
+      } else {
+        this._setFeedStatus('No live news — retrying…', false);
       }
-    });
 
-    this._ws.addEventListener('close', () => {
-      this._wsConnected = false;
-      console.warn('[DashboardLive] WebSocket closed — falling back to REST polling');
-      this.startPolling();
-      // Reconnect after 30 seconds
-      setTimeout(() => this.connectWebSocket(), 30000);
-    });
-
-    this._ws.addEventListener('error', err => {
-      console.warn('[DashboardLive] WebSocket error:', err);
-    });
+    } catch (err) {
+      console.warn('[DashboardLive] fetchNewsAndPrices error:', err.message);
+      this._setFeedStatus('Feed error — retrying in 30s', false);
+    }
   },
 
-  /* ─────────────────────────────────────────────
-     UI UPDATERS
-  ───────────────────────────────────────────── */
-
-  // Updates #live-price and #live-change elements (to be added in index.html Step 3)
+  /* ── UI UPDATERS ── */
   updatePriceUI(data) {
     const priceEl  = document.getElementById('live-price');
     const changeEl = document.getElementById('live-change');
@@ -166,106 +73,100 @@ const DashboardLive = {
     if (priceEl && data.price != null) {
       priceEl.textContent = `$${data.price.toFixed(2)}`;
     }
-
     if (changeEl && data.change != null) {
-      const sign    = data.change >= 0 ? '+' : '';
-      const isUp    = data.change >= 0;
-      changeEl.textContent = `${sign}${data.change.toFixed(2)} (${data.percentChange.toFixed(2)}%)`;
-      changeEl.style.color = isUp ? 'var(--green)' : 'var(--red)';
+      const sign  = data.change >= 0 ? '+' : '';
+      const isUp  = data.change >= 0;
+      changeEl.textContent = `${sign}${data.change.toFixed(2)} (${(data.percentChange || 0).toFixed(2)}%)`;
+      changeEl.style.color = isUp ? 'var(--green, #00e676)' : 'var(--red, #ff3d4a)';
     }
   },
 
-  // Feeds the existing tickerData array in index.html from WebSocket trades
+  updateGeopoliticalNews(newsItems) {
+    const container = document.getElementById('geopolitical-feed');
+    const statusDot = document.getElementById('feedStatusDot');
+
+    // Update the feed status indicator
+    if (statusDot) {
+      statusDot.innerHTML =
+        '<div style="width:6px;height:6px;border-radius:50%;background:var(--green,#00e676);' +
+        'box-shadow:0 0 6px var(--green,#00e676);animation:pulse 1.8s infinite;display:inline-block"></div>' +
+        '&nbsp;Live · ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+
+    // Mirror to GEO Intelligence tab if function exists
+    if (typeof mirrorFeedToGeoIntel === 'function') {
+      try { mirrorFeedToGeoIntel(newsItems); } catch(e) {}
+    }
+
+    if (!container) return;
+
+    const items = newsItems.slice(0, 8);
+    if (!items.length) {
+      container.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:.65rem;color:var(--text-dim,#5a7299);padding:.3rem 0">No headlines available.</div>';
+      return;
+    }
+
+    container.innerHTML = items.map(item => {
+      // Finnhub returns datetime as unix timestamp (seconds)
+      const ts   = item.datetime ? item.datetime * 1000 : Date.now();
+      const time = new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      const headline = (item.headline || item.title || '').trim();
+      const summary  = ((item.summary || item.description || '')).substring(0, 120).trim();
+      const url      = item.url || item.link || '#';
+      const source   = item.source || '';
+
+      return `
+        <div style="border-bottom:1px solid var(--border-dim,#152238);padding:.65rem 0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;
+            margin-bottom:.3rem;gap:.5rem">
+            <small style="color:var(--cyan,#00d4ff);font-family:'IBM Plex Mono',monospace;
+              font-size:.6rem;letter-spacing:.08em">${time}</small>
+            <small style="color:var(--text-dim,#5a7299);font-family:'IBM Plex Mono',monospace;
+              font-size:.58rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px">${source}</small>
+          </div>
+          <div style="font-size:.8rem;font-weight:600;color:var(--text-pri,#e8edf5);
+            margin-bottom:.25rem;line-height:1.4">${headline}</div>
+          ${summary ? `<div style="font-size:.7rem;color:var(--text-dim,#5a7299);line-height:1.5">
+            ${summary}${summary.length >= 120 ? '…' : ''}
+          </div>` : ''}
+          ${url && url !== '#' ? `
+            <a href="${url}" target="_blank" rel="noopener"
+              style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;
+              color:var(--cyan,#00d4ff);text-decoration:none;letter-spacing:.08em">
+              Read →
+            </a>` : ''}
+        </div>`;
+    }).join('');
+  },
+
+  _setFeedStatus(message, isLive) {
+    const statusDot = document.getElementById('feedStatusDot');
+    if (!statusDot) return;
+    const color = isLive ? 'var(--green,#00e676)' : 'var(--text-dim,#5a7299)';
+    statusDot.innerHTML =
+      `<div style="width:6px;height:6px;border-radius:50%;background:${color};` +
+      `display:inline-block;margin-right:4px"></div>${message}`;
+  },
+
+  /* ── TICKER UPDATE (bridges to index.html's tickerData if available) ── */
   updateTickerFromWS(symbol, price) {
-    // Bridge into the ticker strip already built in index.html
     if (typeof updateTickerItem === 'function') {
       updateTickerItem(symbol, price, null);
     }
   },
 
-  // Updates #geopolitical-feed (to be added in index.html Step 3)
-  // Receives Finnhub company news format:
-  //   { datetime (unix), headline, summary, source, url }
-  updateGeopoliticalNews(newsItems) {
-    const container = document.getElementById('geopolitical-feed');
-    const statusDot = document.getElementById('feedStatusDot');
-
-    // Update the status indicator to show connected
-    if (statusDot) {
-      statusDot.innerHTML =
-        '<div style="width:6px;height:6px;border-radius:50%;background:var(--green);' +
-        'box-shadow:0 0 6px var(--green);animation:pulse 1.8s infinite"></div>' +
-        'Live · ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    }
-
-    // Also mirror to GEO Intelligence tab
-    if (typeof mirrorFeedToGeoIntel === 'function') {
-      mirrorFeedToGeoIntel(newsItems);
-    }
-
-    if (!container) return;
-
-    container.innerHTML = newsItems
-      .slice(0, 8)   // show latest 8 items
-      .map(item => {
-        const time = new Date(item.datetime * 1000).toLocaleTimeString([], {
-          hour: '2-digit', minute: '2-digit'
-        });
-        const summary = (item.summary || '').substring(0, 100);
-        return `
-          <div style="border-bottom:1px solid var(--border-dim);padding:0.65rem 0;">
-            <div style="display:flex;align-items:center;justify-content:space-between;
-              margin-bottom:0.3rem;gap:0.5rem">
-              <small style="color:var(--cyan);font-family:'IBM Plex Mono',monospace;
-                font-size:0.6rem;letter-spacing:0.08em">${time}</small>
-              <small style="color:var(--text-dim);font-family:'IBM Plex Mono',monospace;
-                font-size:0.58rem">${item.source || ''}</small>
-            </div>
-            <div style="font-size:0.8rem;font-weight:600;color:var(--text-pri);
-              margin-bottom:0.25rem;line-height:1.4">${item.headline}</div>
-            <div style="font-size:0.7rem;color:var(--text-dim);line-height:1.5">
-              ${summary}${summary.length >= 100 ? '…' : ''}
-            </div>
-            ${item.url ? `
-              <a href="${item.url}" target="_blank" rel="noopener"
-                style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
-                color:var(--cyan);text-decoration:none;letter-spacing:0.08em">
-                Read →
-              </a>` : ''}
-          </div>`;
-      })
-      .join('');
-  },
-
-  /* ─────────────────────────────────────────────
-     HELPERS
-  ───────────────────────────────────────────── */
-
-  // Switch the active symbol (e.g. called from a dropdown in index.html)
   setSymbol(symbol) {
     this.config.activeSymbol = symbol;
-    this.fetchData();
+    this.fetchNewsAndPrices();
   },
 
-  // Graceful teardown (call before page unload if needed)
   destroy() {
     this.stopPolling();
-    if (this._ws) {
-      this.config.watchlist.forEach(s => {
-        try { this._ws.send(JSON.stringify({ type: 'unsubscribe', symbol: s })); }
-        catch(e) {}
-      });
-      this._ws.close();
-    }
   }
 };
 
-/* ══════════════════════════════════════════════════════════
-   AUTO-INIT — DISABLED until Step 3 setup is complete.
-   To enable:
-     1. Deploy /api/market.js to Vercel
-     2. Add FINNHUB_API_KEY to Vercel Environment Variables
-     3. Uncomment the block below and push to GitHub
-   ══════════════════════════════════════════════════════════ */
-
-document.addEventListener("DOMContentLoaded", () => DashboardLive.init());
+/* ── AUTO-INIT on DOMContentLoaded ── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Small delay so index.html's own DOMContentLoaded handler runs first
+  setTimeout(() => DashboardLive.init(), 2500);
+});
