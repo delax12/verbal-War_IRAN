@@ -3,8 +3,10 @@
  * Multi-provider AI narrative engine for DELAX GEO-RISK dashboard.
  * Auto-detects: GEMINI_API_KEY (free) → GROQ_API_KEY (free) → ANTHROPIC_API_KEY (paid)
  *
- * type:'heatmap' → 3-paragraph regional stress narrative
- * type:'kpi'     → 4-section click-to-explain indicator analysis
+ * type:'heatmap'      → 3-paragraph regional stress narrative
+ * type:'kpi'          → 4-section click-to-explain indicator analysis
+ * type:'newssummary'  → 1-sentence Bloomberg-style alert from top headlines
+ * type:'stockinsights'→ JSON stock analysis for country popup
  */
 'use strict';
 
@@ -39,9 +41,12 @@ module.exports = async function handler(req, res) {
     kpiId, kpiLabel, kpiValue,
     oilPrice = 121, cpi = '+3.8%', gdp = '-1.9%',
     liveDate = new Date().toISOString().slice(0,10),
+    headlines = [],
+    // stock insights
+    countryName, stocks, stressIndex, countryData,
   } = req.body || {};
 
-  if (!type) return res.status(400).json({ error: 'type is required: heatmap or kpi' });
+  if (!type) return res.status(400).json({ error: 'type is required: heatmap, kpi, newssummary, or stockinsights' });
 
   /* ════════════ HEATMAP NARRATIVE ════════════ */
   if (type === 'heatmap') {
@@ -112,13 +117,17 @@ Total 120 to 140 words. Be precise and actionable.`;
     return res.status(200).json({ narrative: result.text, provider, model: result.model, generatedAt: new Date().toISOString() });
   }
 
-  /* ══ NEWS SUMMARY — auto-called after RSS fetch ══
-     Scores headlines by hotness, sends top 5 to AI,
-     returns a 1-sentence Bloomberg-style alert.
-     No user click — fires automatically on news refresh. */
+  /* ════════════ NEWS SUMMARY ════════════ */
   if (type === 'newssummary') {
-    const { headlines = [], scenario: sc = 'baseline', oilPrice: op = 121 } = req.body || {};
     if (!headlines.length) return res.status(400).json({ error: 'headlines array required' });
+
+    // If only 1 "headline" and it's very long, it's a full prompt (stock insights fallback)
+    // Route it directly as a stock insights request
+    if (headlines.length === 1 && headlines[0].length > 200) {
+      const result = await route(provider, apiKey, headlines[0], 400);
+      if (result.error) return res.status(result.status || 500).json({ error: result.error, provider });
+      return res.status(200).json({ summary: result.text, provider, model: result.model, generatedAt: new Date().toISOString() });
+    }
 
     const HOT = ['iran','hormuz','oil','brent','opec','war','strike','missile','sanctions',
       'ceasefire','nuclear','attack','crisis','emergency','surge','fed','rate','inflation',
@@ -136,7 +145,7 @@ Total 120 to 140 words. Be precise and actionable.`;
 
     const prompt = `You are a Bloomberg terminal intelligence system for the DELAX GEO-RISK dashboard.
 
-SCENARIO: ${sc} | Brent: $${op}/bbl | ${new Date().toISOString().slice(0,10)}
+SCENARIO: ${scenario} | Brent: $${oilPrice}/bbl | ${new Date().toISOString().slice(0,10)}
 
 TOP HEADLINES:
 ${top5.map((h, i) => `${i+1}. ${h}`).join('\n')}
@@ -169,12 +178,62 @@ WATCH: Saudi spare capacity activated — Brent easing $4 from peak · Supply ga
     });
   }
 
-  return res.status(400).json({ error: `Unknown type. Use heatmap, kpi, or newssummary.` });
+  /* ════════════ STOCK INSIGHTS ════════════ */
+  if (type === 'stockinsights') {
+    const country  = countryName || 'Unknown';
+    const stockList= (stocks || []).slice(0, 6).map(s => `${s[0]} (${s[1]})`).join(', ') || 'XOM, GLD, LMT, RTX';
+    const stress   = stressIndex || 'N/A';
+    const cData    = countryData || {};
+
+    const prompt = `You are a sell-side equity analyst at a global investment bank covering the Iran War 2026 scenario.
+
+COUNTRY: ${country}
+SCENARIO: ${scenario.toUpperCase()} | Brent: $${oilPrice}/bbl
+Stress Index: ${stress}/10 | CPI: ${cData.cpi || 'N/A'}% | GDP: ${cData.gdp || 'N/A'}%
+Oil dependency: ${cData.oilDep || 'N/A'}% | FX Vol: ${cData.fxVol || 'N/A'}%
+
+RELEVANT STOCKS: ${stockList}
+
+Return ONLY valid JSON (no markdown, no backticks, no explanation):
+{
+  "theme": "2-sentence macro theme for ${country} in this scenario",
+  "stocks": [
+    {"sym":"TICKER","signal":"BUY","reason":"one sentence quantitative rationale"},
+    {"sym":"TICKER","signal":"HOLD","reason":"one sentence quantitative rationale"},
+    {"sym":"TICKER","signal":"SELL","reason":"one sentence quantitative rationale"}
+  ],
+  "risk": "one sentence key risk to this view"
+}
+
+Include 3-4 stocks. Keep total under 140 words. JSON only.`;
+
+    const result = await route(provider, apiKey, prompt, 450);
+    if (result.error) return res.status(result.status || 500).json({ error: result.error, provider });
+
+    // Attempt to parse JSON from response
+    let parsed = null;
+    const raw = result.text.trim().replace(/```json\n?|```/g, '').trim();
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      // Return raw text so client can display gracefully
+      parsed = { theme: raw.slice(0, 200), stocks: [], risk: 'Parse error — see theme for analysis.' };
+    }
+
+    return res.status(200).json({
+      ...parsed,
+      provider,
+      model:       result.model,
+      generatedAt: new Date().toISOString(),
+    });
+  }
+
+  return res.status(400).json({ error: `Unknown type. Use heatmap, kpi, newssummary, or stockinsights.` });
 };
 
-/* ════════════════════════════════════
+/* ════════════════════════════════════════════════════
    PROVIDER ROUTER
-   ════════════════════════════════════ */
+   ════════════════════════════════════════════════════ */
 async function route(provider, apiKey, prompt, maxTokens) {
   if (provider === 'gemini')    return callGemini(apiKey, prompt, maxTokens);
   if (provider === 'groq')      return callGroq(apiKey, prompt, maxTokens);
@@ -239,15 +298,3 @@ async function callAnthropic(apiKey, prompt, maxTokens) {
     return { text, model: b.model || 'claude-haiku' };
   } catch (e) { return { error: `Anthropic network: ${e.message}`, status: 500 }; }
 }
-
-/* ════════════════════════════════════════
-   NEWS SUMMARY (type: 'newssummary')
-   Called automatically after RSS fetch.
-   Scores headlines by hotness, sends top 5
-   to Gemini, returns a 1-sentence summary
-   that replaces the alert banner text.
-   No user click needed — fully automatic.
-════════════════════════════════════════ */
-// NOTE: This block is appended to analyze.js.
-// The handler already returns above for heatmap/kpi.
-// Add newssummary support by patching the main handler.
