@@ -113,7 +113,7 @@ Maximum 280 words. Sharp, data-driven, specific numbers. No preamble.`;
 
 async function callGemini(apiKey, prompt, maxTokens) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     const r = await fetch(url, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -126,7 +126,7 @@ async function callGemini(apiKey, prompt, maxTokens) {
     if (!r.ok) return { error: body?.error?.message || `Gemini HTTP ${r.status}`, status: r.status };
     const text = body?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!text) return { error: 'Gemini returned empty content', status: 502 };
-    return { text, model: 'gemini-2.5-flash-lite' };
+    return { text, model: 'gemini-1.5-flash' };
   } catch (err) {
     return { error: `Gemini network error: ${err.message}`, status: 500 };
   }

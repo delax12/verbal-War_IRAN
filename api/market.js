@@ -9,7 +9,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd768gopr01qm4b7tbbm0d768gopr01qm4b7tbbmg';
+  const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
+  if (!FINNHUB_KEY) {
+    return res.status(500).json({ error: 'FINNHUB_API_KEY not configured in Vercel environment variables' });
+  }
   const { symbol, action } = req.query;
 
   // WebSocket token endpoint (used by dashboard-live.js)

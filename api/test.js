@@ -27,13 +27,13 @@ module.exports = async function handler(req, res) {
   try {
     if (provider === 'gemini') {
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ contents:[{parts:[{text:'Reply with exactly the word: OK'}]}], generationConfig:{maxOutputTokens:5} }) }
       );
       const b = await r.json().catch(() => ({}));
       test = r.ok
-        ? { status:'OK ✅', model:'gemini-2.5-flash-lite', response: b?.candidates?.[0]?.content?.parts?.[0]?.text }
+        ? { status:'OK ✅', model:'gemini-1.5-flash', response: b?.candidates?.[0]?.content?.parts?.[0]?.text }
         : { status:'FAIL ❌', httpStatus: r.status, error: b?.error?.message || 'unknown', hint: r.status===400?'Bad request — key may be wrong or project not enabled':'Check console.cloud.google.com' };
     }
 

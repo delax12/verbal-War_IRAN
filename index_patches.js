@@ -1,4 +1,4 @@
-/**
+cd "/Users/frankkjhooy/Desktop/GEO INTEL VS code /verbal-War_IRAN"cd "/Users/frankkjhooy/Desktop/GEO INTEL VS code /verbal-War_IRAN"/**
  * index_patches.js — DELAX GEO-RISK Dashboard Patches
  * ──────────────────────────────────────────────────────
  * Fixes 4 issues without modifying index.html or georisk-intelligence.html:
