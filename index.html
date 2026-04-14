@@ -3310,5 +3310,342 @@ function exportCSV(type) {
 }
 </script>
 <script src="/index_patches.js" defer></script>
+<!-- ============================================================
+     DELAX GEORISK · LIVE BRENT PRICE ENGINE  v2.3
+     Paste this entire block just before the closing </body> tag
+     in index.html. It wires live Brent price to ALL dashboard
+     surfaces: ticker strip, KPI tiles, scenario builder,
+     ECharts forecast chart, and the Intelligence panel.
+     ============================================================ -->
+
+<script>
+(function () {
+  'use strict';
+
+  // ── CONFIG ────────────────────────────────────────────────────────────────
+  const POLL_MS        = 5 * 60 * 1000;  // re-fetch every 5 minutes
+  const ANCHOR         = 78;             // pre-conflict baseline $/bbl
+  const API_ENDPOINT   = '/api/eia-oil';
+
+  // ── STATE ─────────────────────────────────────────────────────────────────
+  let liveData = null;
+
+  // ── TICKER STRIP INJECTION ────────────────────────────────────────────────
+  // Creates (or reuses) a fixed top ticker bar with live Brent price
+  function ensureTicker() {
+    let ticker = document.getElementById('delax-brent-ticker');
+    if (!ticker) {
+      ticker = document.createElement('div');
+      ticker.id = 'delax-brent-ticker';
+      ticker.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;
+        background: linear-gradient(90deg, #050814 0%, #0a1628 50%, #050814 100%);
+        border-bottom: 1px solid #00dc80;
+        display: flex; align-items: center; gap: 24px;
+        padding: 4px 16px; font-family: 'Liberation Mono', monospace;
+        font-size: 11px; color: #8ab0c0; height: 28px;
+        box-shadow: 0 2px 12px rgba(0,220,128,0.15);
+      `;
+      // Shift body down so content isn't hidden under ticker
+      document.body.style.paddingTop = '28px';
+      document.body.insertAdjacentElement('afterbegin', ticker);
+    }
+    return ticker;
+  }
+
+  function renderTicker(d) {
+    const ticker = ensureTicker();
+    const dir    = d.change >= 0 ? '▲' : '▼';
+    const col    = d.change >= 0 ? '#ff4444' : '#00ff99'; // red=up (bad for inflation), green=down
+    const chgStr = `${dir} ${Math.abs(d.change).toFixed(2)} (${d.changePct >= 0 ? '+' : ''}${d.changePct}%)`;
+    const srcBadge = `<span style="color:#005566;margin-left:8px">[${d.source.toUpperCase()}]</span>`;
+
+    ticker.innerHTML = `
+      <span style="color:#00dc80;font-weight:700;letter-spacing:1px">● LIVE</span>
+      <span style="color:#aac0d0">BRENT CRUDE:</span>
+      <span id="delax-brent-price" style="color:#ffffff;font-size:13px;font-weight:700">
+        $${d.price.toFixed(2)}<span style="font-size:10px">/bbl</span>
+      </span>
+      <span style="color:${col}">${chgStr}</span>
+      <span style="color:#556677">|</span>
+      <span style="color:#8ab0c0">vs pre-conflict:</span>
+      <span style="color:${d.conflictDelta >= 0 ? '#ff6644' : '#00ff99'}">
+        ${d.conflictDelta >= 0 ? '+' : ''}$${d.conflictDelta.toFixed(2)} (+${d.conflictDeltaPct}%)
+      </span>
+      <span style="color:#556677">|</span>
+      <span style="color:#8ab0c0">Peak Est:</span>
+      <span style="color:#ffaa00;font-weight:700">$${d.derived.peakEstimate.toFixed(0)}/bbl</span>
+      <span style="color:#556677">|</span>
+      <span style="color:#8ab0c0">CPI Add Yr1:</span>
+      <span style="color:#ff8844">+${d.derived.cpiAdd}%</span>
+      <span style="color:#556677">|</span>
+      <span style="color:#8ab0c0">GDP Yr1:</span>
+      <span style="color:#ff4444">−${d.derived.gdpLoss}%</span>
+      ${srcBadge}
+      <span style="margin-left:auto;color:#334455">
+        Updated: ${new Date(d.timestamp).toLocaleTimeString()}
+      </span>
+    `;
+  }
+
+  // ── KPI TILES ─────────────────────────────────────────────────────────────
+  // Targets the KPI tiles by their text content label
+  function updateKpiTiles(d) {
+    // Map of label patterns → new value + subtitle
+    const updates = [
+      {
+        patterns: ['Brent Crude', 'brent crude', 'BRENT'],
+        value:    `$${d.price.toFixed(2)}`,
+        sub:      `Live · Peak Est $${d.derived.peakEstimate.toFixed(0)} · Pre-conflict $${ANCHOR}`,
+        color:    '#ff8844',
+      },
+      {
+        patterns: ['Global CPI', 'CPI', 'cpi'],
+        value:    `+${d.derived.cpiAdd}%`,
+        sub:      `Yr1 CPI add · Live-anchored`,
+        color:    '#ffaa44',
+      },
+      {
+        patterns: ['Global GDP', 'GDP Loss', 'gdp'],
+        value:    `−${d.derived.gdpLoss}%`,
+        sub:      `Yr1 GDP impact · Live-anchored`,
+        color:    '#ff4444',
+      },
+      {
+        patterns: ['Shipping Index', 'shipping'],
+        value:    `+${d.derived.shippingIndex - 100}%`,
+        sub:      `Index ${d.derived.shippingIndex} · Cape of Good Hope rerouting`,
+        color:    '#ffcc00',
+      },
+    ];
+
+    // Walk all elements looking for KPI value containers
+    updates.forEach(({ patterns, value, sub, color }) => {
+      document.querySelectorAll('*').forEach(el => {
+        // Only leaf-ish nodes with short text that match a pattern
+        if (el.children.length > 3) return;
+        const txt = (el.innerText || el.textContent || '').trim();
+        if (patterns.some(p => txt.toLowerCase().includes(p.toLowerCase()))) {
+          // Find sibling or child value element
+          const parent = el.closest('[class]') || el.parentElement;
+          if (!parent) return;
+
+          // Look for a big number element nearby
+          const valueEl = parent.querySelector('h3,h4,.value,[class*="value"],[class*="kpi-val"]')
+                       || parent.nextElementSibling?.querySelector('h3,h4');
+          if (valueEl && valueEl.dataset.delaxLocked !== 'true') {
+            valueEl.textContent = value;
+            valueEl.style.color = color;
+            valueEl.dataset.delaxLocked = 'true';
+          }
+
+          // Update subtitle/footnote if present
+          const subEl = parent.querySelector('p,small,.sub,[class*="sub"]');
+          if (subEl) subEl.textContent = sub;
+        }
+      });
+    });
+
+    // ── Also target by known ID patterns from the crawled HTML ───────────────
+    patchById('brent-peak-value',    `$${d.price.toFixed(2)}`,             '#ff8844');
+    patchById('brent-peak-sub',      `Live · Peak Est $${d.derived.peakEstimate.toFixed(0)}/bbl · Pre-conflict $${ANCHOR}`, null);
+    patchById('cpi-add-value',       `+${d.derived.cpiAdd}%`,              '#ffaa44');
+    patchById('gdp-loss-value',      `−${d.derived.gdpLoss}%`,             '#ff4444');
+    patchById('shipping-idx-value',  `+${d.derived.shippingIndex - 100}%`, '#ffcc00');
+
+    // ── Scenario builder live estimate readout ────────────────────────────────
+    document.querySelectorAll('[class*="live-impact"], [class*="liveImpact"], #live-estimate').forEach(el => {
+      const priceEl = el.querySelector('[class*="oil"], [class*="price"], h4, strong');
+      if (priceEl) {
+        priceEl.textContent = `$${d.derived.peakEstimate.toFixed(0)}/bbl`;
+        priceEl.style.color = '#ff8844';
+      }
+    });
+  }
+
+  function patchById(id, val, color) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val;
+    if (color) el.style.color = color;
+  }
+
+  // ── ECHARTS FORECAST CHART RE-ANCHOR ─────────────────────────────────────
+  // Finds the Brent forecast ECharts instance and updates month-0 anchor
+  function updateCharts(d) {
+    if (typeof echarts === 'undefined') return;
+
+    echarts.getInstanceByDom && document.querySelectorAll('[_echarts_instance_]').forEach(dom => {
+      try {
+        const chart = echarts.getInstanceByDom(dom);
+        if (!chart) return;
+        const opt = chart.getOption();
+        if (!opt?.series) return;
+
+        // Only patch series that look like oil price forecasts (values in $/bbl range)
+        opt.series.forEach((s, si) => {
+          if (!s.data || s.data.length < 3) return;
+          const first = parseFloat(s.data[0]?.value ?? s.data[0]);
+          if (first < 50 || first > 300) return; // not an oil price series
+
+          // Recalculate series: scale all values relative to new anchor
+          const oldAnchor = 78;
+          const ratio     = d.price / oldAnchor;
+          const newData   = s.data.map((pt, i) => {
+            const raw = typeof pt === 'object' ? pt.value : pt;
+            // First point = live price; rest scale proportionally
+            const newVal = i === 0 ? d.price : parseFloat((raw * ratio).toFixed(2));
+            return typeof pt === 'object' ? { ...pt, value: newVal } : newVal;
+          });
+
+          chart.setOption({
+            series: [{ ...s, data: newData }],
+          }, { replaceMerge: ['series'] });
+        });
+      } catch (_) { /* skip bad instances */ }
+    });
+  }
+
+  // ── INTELLIGENCE PANEL (Bloomberg-style) ─────────────────────────────────
+  function updateIntelPanel(d) {
+    // The intelligence panel uses data-indicator attributes or known class names
+    const intelSelectors = [
+      '[data-indicator="brent"]',
+      '[data-indicator="oil"]',
+      '.intel-brent',
+      '#intel-oil-price',
+      '.georisk-intel [class*="price"]',
+    ];
+
+    intelSelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.textContent = `$${d.price.toFixed(2)}/bbl`;
+        el.style.color = '#ff8844';
+      });
+    });
+
+    // Update the "pre-conflict anchor" text wherever it appears
+    document.querySelectorAll('*').forEach(el => {
+      if (el.children.length > 0) return;
+      const txt = el.textContent || '';
+      if (txt.includes('Pre-conflict: $78') || txt.includes('pre-conflict anchor: $78')) {
+        el.textContent = txt
+          .replace(/Pre-conflict: \$[\d.]+/g, `Pre-conflict: $${ANCHOR}`)
+          .replace(/\+[\d.]+%/g, `+${d.conflictDeltaPct}%`);
+      }
+    });
+
+    // Inject live price into the "INDICATOR" section of Intelligence panel
+    const indPanel = document.querySelector('.intel-indicators, #intelligence-indicators, [class*="intel"][class*="panel"]');
+    if (indPanel) {
+      let liveRow = indPanel.querySelector('#delax-live-brent-row');
+      if (!liveRow) {
+        liveRow = document.createElement('div');
+        liveRow.id = 'delax-live-brent-row';
+        liveRow.style.cssText = `
+          display:flex; justify-content:space-between; align-items:center;
+          padding: 6px 12px; border-bottom: 1px solid #003344;
+          font-family: monospace; font-size: 12px;
+        `;
+        indPanel.prepend(liveRow);
+      }
+      liveRow.innerHTML = `
+        <span style="color:#8ab0c0">⚡ BRENT LIVE</span>
+        <span style="color:#ff8844;font-weight:700">$${d.price.toFixed(2)}</span>
+        <span style="color:${d.change >= 0 ? '#ff4444' : '#00ff99'}">
+          ${d.change >= 0 ? '▲' : '▼'} ${Math.abs(d.change).toFixed(2)}
+        </span>
+        <span style="color:#556677;font-size:10px">${d.source}</span>
+      `;
+    }
+  }
+
+  // ── SCENARIO BUILDER SYNC ─────────────────────────────────────────────────
+  // When scenario sliders change, recalculate peak using live anchor
+  function bindScenarioBuilder(d) {
+    // Find the "Est. Oil Peak" output element
+    const peakEls = [
+      ...document.querySelectorAll('[class*="oil-peak"], [class*="oilPeak"], #est-oil-peak'),
+      ...Array.from(document.querySelectorAll('*')).filter(el =>
+        el.children.length === 0 &&
+        /Est\.?\s*Oil\s*Peak|\$\d+\/bbl/i.test(el.textContent)
+      ),
+    ];
+
+    peakEls.forEach(el => {
+      if (!el.dataset.delaxBound) {
+        el.dataset.delaxBound = 'true';
+        // Initial value
+        el.textContent = `$${d.derived.peakEstimate.toFixed(0)}/bbl`;
+        el.style.color = '#ff8844';
+      }
+    });
+
+    // Hook into any Apply button for the scenario builder
+    document.querySelectorAll('[class*="apply"], [class*="Apply"], #apply-scenario').forEach(btn => {
+      if (btn.dataset.delaxHooked) return;
+      btn.dataset.delaxHooked = 'true';
+      btn.addEventListener('click', () => {
+        // Re-derive peak from current slider values + live price
+        const durationSlider = document.querySelector('[name*="duration"], [id*="duration"]');
+        const closureSlider  = document.querySelector('[name*="closure"], [id*="closure"]');
+        const closureDays    = closureSlider ? parseInt(closureSlider.value) : 0;
+        const closureBonus   = closureDays > 0 ? closureDays * 0.5 : 0; // $0.50/day extra
+        const newPeak        = Math.max(d.price * 1.20, d.derived.peakEstimate + closureBonus);
+        peakEls.forEach(el => {
+          el.textContent = `$${newPeak.toFixed(0)}/bbl`;
+        });
+      });
+    });
+  }
+
+  // ── MASTER UPDATE ─────────────────────────────────────────────────────────
+  function applyAll(d) {
+    liveData = d;
+    renderTicker(d);
+    updateKpiTiles(d);
+    updateCharts(d);
+    updateIntelPanel(d);
+    bindScenarioBuilder(d);
+    // Dispatch custom event so any other dashboard code can react
+    window.dispatchEvent(new CustomEvent('delax:brent-update', { detail: d }));
+    console.log(`[DELAX GeoRisk] Brent live: $${d.price} (${d.source}) @ ${d.timestamp}`);
+  }
+
+  // ── FETCH ─────────────────────────────────────────────────────────────────
+  async function fetchBrent() {
+    try {
+      const r = await fetch(API_ENDPOINT, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      applyAll(d);
+    } catch (err) {
+      console.warn('[DELAX GeoRisk] Brent fetch failed:', err.message);
+      // Inject error state into ticker
+      const ticker = ensureTicker();
+      const errBadge = ticker.querySelector('#delax-brent-price');
+      if (errBadge) {
+        errBadge.style.color = '#555';
+        errBadge.textContent = 'PRICE UNAVAILABLE';
+      }
+    }
+  }
+
+  // ── BOOT ──────────────────────────────────────────────────────────────────
+  // Fetch immediately on load, then on interval
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fetchBrent);
+  } else {
+    fetchBrent();
+  }
+  setInterval(fetchBrent, POLL_MS);
+
+  // Expose to window for manual refresh from console / other scripts
+  window.DELAX = window.DELAX || {};
+  window.DELAX.refreshBrent = fetchBrent;
+  window.DELAX.getBrent = () => liveData;
+
+})();
+</script>
 </body>
 </html>
