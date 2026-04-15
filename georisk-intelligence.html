@@ -1514,11 +1514,6 @@ let tickerData = TICK_SYMBOLS.map(t=>({...t}));
 function jitterMarkets() {
   const smult = SCENARIO_MULT[scenario];
   tickerData = tickerData.map(t => {
-    // Never overwrite live Finnhub/EIA prices — micro-jitter only
-    if (t.live || t.finnhub) {
-      const micro = (Math.random() - 0.5) * 0.0003;
-      return { ...t, prev: t.price, price: parseFloat((t.price*(1+micro)).toFixed(t.price>100?2:4)) };
-    }
     const vol = t.id==='VIX'?0.018:t.id==='BRENT'||t.id==='WTI'?0.006:
                 t.id==='GOLD'?0.003:t.id==='EMCS'?0.008:0.004;
     const drift = t.id==='BRENT'||t.id==='WTI'||t.id==='NG'?0.0002*(smult.oil-1):
@@ -1637,65 +1632,26 @@ async function initGlobe() {
   // GeoJSON with 3 fallback sources
   let world = null;
   const GEO_URLS = [
-    // three-globe's own bundled dataset — same package already loaded for the globe
-    'https://cdn.jsdelivr.net/npm/three-globe/example/datasets/ne_110m_admin_0_countries.geojson',
-    // unpkg mirror of the same package
-    'https://unpkg.com/three-globe/example/datasets/ne_110m_admin_0_countries.geojson',
-    // world-atlas topojson converted to geojson via a reliable CDN
-    'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
-    // absolute last resort — the johan/world.geo.json repo
-    'https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json',
+    'https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/DATA/world.geojson',
+    'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
+    'https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson',
   ];
   for (let i = 0; i < GEO_URLS.length; i++) {
     try {
       const m = document.getElementById('globeMsg');
-      if (m) m.textContent = 'Loading map data ' + (i+1) + '/' + GEO_URLS.length + '...';
-      console.log('[Globe] trying source', i+1, ':', GEO_URLS[i]);
-
-      const r = await fetch(GEO_URLS[i], { cache: 'force-cache' });
-      if (!r.ok) { console.warn('[Globe] HTTP', r.status, GEO_URLS[i]); continue; }
-
+      if (m) m.textContent = 'Source ' + (i+1) + '/' + GEO_URLS.length + '…';
+      const r = await fetch(GEO_URLS[i]);
+      if (!r.ok) continue;
       const j = await r.json();
-
-      // Standard GeoJSON FeatureCollection
-      if (j && j.type === 'FeatureCollection' && j.features && j.features.length > 10) {
-        console.log('[Globe] GeoJSON OK — features:', j.features.length, 'from source', i+1);
-        world = j;
-        break;
-      }
-
-      // TopoJSON (world-atlas format) — requires topojson-client
-      if (j && j.type === 'Topology' && j.objects) {
-        if (typeof topojson !== 'undefined') {
-          const key = Object.keys(j.objects)[0];
-          const converted = topojson.feature(j, j.objects[key]);
-          if (converted && converted.features && converted.features.length > 10) {
-            console.log('[Globe] TopoJSON converted — features:', converted.features.length);
-            world = converted;
-            break;
-          }
-        } else {
-          console.warn('[Globe] TopoJSON received but topojson-client not loaded, trying next...');
-        }
-        continue;
-      }
-
-      console.warn('[Globe] unrecognised format from source', i+1, '— type:', j && j.type);
-    } catch(e) {
-      console.warn('[Globe] source', i+1, 'failed:', e.message);
-    }
+      if (j && j.features && j.features.length > 10) { world = j; break; }
+    } catch(e) { /* try next */ }
   }
 
   if (!world) {
-    console.error('[Globe] All', GEO_URLS.length, 'GeoJSON sources failed — check network');
-    el.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-      'height:100%;font-family:\'IBM Plex Mono\',monospace;text-align:center;padding:20px;gap:8px">' +
-      '<div style="font-size:13px;color:#ff3d4a">⚠ Globe data unavailable</div>' +
-      '<div style="font-size:9px;color:#4a7a9a">All ' + GEO_URLS.length + ' map sources failed.</div>' +
-      '<div style="font-size:9px;color:#4a7a9a">Open browser console (F12) for details.</div>' +
-      '<button onclick="initGlobe()" style="margin-top:8px;background:rgba(0,212,255,.1);border:1px solid #00d4ff;' +
-      'color:#00d4ff;font-family:monospace;font-size:9px;padding:5px 12px;border-radius:2px;cursor:pointer">' +
-      '⟳ RETRY</button></div>';
+    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;' +
+      'height:100%;font-size:11px;color:#ff3d4a;font-family:\'IBM Plex Mono\',monospace;' +
+      'text-align:center;padding:20px">⚠ Globe data unavailable<br>' +
+      '<span style="font-size:9px;color:#2e5470;margin-top:6px;display:block">Check network connection</span></div>';
     return;
   }
 
@@ -2685,45 +2641,31 @@ const FINNHUB_EQUITY_IDS = {
 };
 
 async function fetchFinnhubTicker() {
-  // Map Finnhub symbols → tickerData ids (VIX excluded — not on free tier)
-  const symbolMap = {
-    'XOM': 'XOM', 'LMT': 'LMT', 'RTX': 'RTX',
-    'DAL': 'DAL', 'SPY': 'SPX', 'GLD': 'GOLD',
-  };
   try {
+    // Batch fetch equities via the market proxy
+    const symbols = ['XOM','LMT','RTX','DAL','SPY','GLD','VIX'];
     const results = await Promise.allSettled(
-      Object.keys(symbolMap).map(sym =>
+      symbols.map(sym =>
         fetch('/api/market?symbol=' + sym)
           .then(r => r.ok ? r.json() : null)
-          .then(d => d && d.price ? { sym, price: parseFloat(d.price), pct: d.percentChange || 0 } : null)
+          .then(d => d && d.price ? { sym, price: d.price, change: d.change, pct: d.percentChange } : null)
           .catch(() => null)
       )
     );
     let updated = false;
     results.forEach(r => {
       if (r.status !== 'fulfilled' || !r.value) return;
-      const { sym, price } = r.value;
-      const tickId = symbolMap[sym];
+      const { sym, price, change, pct } = r.value;
+      const tickId = FINNHUB_EQUITY_IDS[sym];
+      if (!tickId) return;
       tickerData = tickerData.map(t => {
         if (t.id !== tickId) return t;
         updated = true;
-        return { ...t, prev: t.price, price, live: true, finnhub: true };
+        return { ...t, prev: t.price, price: parseFloat(price.toFixed(2)), live: true, finnhub: true };
       });
     });
-    if (updated) { updateTicker(); updateSidebarMetrics(); }
-  } catch(e) { /* non-fatal */ }
-
-  // Also refresh EIA oil prices (BRENT/WTI/NG)
-  try {
-    const r = await fetch('/api/eia-oil');
-    if (r.ok) {
-      const e = await r.json();
-      if (e.price)         tickerData = tickerData.map(t => t.id==='BRENT' ? {...t,prev:t.price,price:e.price,live:true} : t);
-      if (e.wti?.price)    tickerData = tickerData.map(t => t.id==='WTI'   ? {...t,prev:t.price,price:e.wti.price,live:true} : t);
-      if (e.natgas?.price) tickerData = tickerData.map(t => t.id==='NG'    ? {...t,prev:t.price,price:e.natgas.price,live:true} : t);
-      updateTicker();
-    }
-  } catch(e) { /* non-fatal */ }
+    if (updated) updateTicker();
+  } catch(e) { /* non-fatal — jitter continues */ }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2840,42 +2782,28 @@ async function openStockPopup(countryName) {
     '\nReturn JSON only. No markdown. No extra text.';
 
   let aiResult = null;
-
-  // PRIMARY: /api/whatif with raw stock prompt
-  // whatif → Gemini (gemini-2.0-flash) → returns {analysis}
-  // We tell Gemini to return JSON inside its analysis field
+  // Try Gemini first via /api/analyze
   try {
-    const r = await fetch('/api/whatif', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: prompt, scenario, oilPrice: brent }),
+    const r = await fetch('/api/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ type:'newssummary', headlines:[prompt], scenario, oilPrice:brent }),
     });
-    if (r.ok) {
-      const d = await r.json();
-      const raw = (d.analysis || d.narrative || '').trim();
-      if (raw && raw.length > 30) aiResult = raw;
+    const d = await r.json();
+    if (r.ok && (d.summary || d.narrative)) {
+      aiResult = (d.summary || d.narrative || '').trim();
     }
-  } catch(e) { console.warn('[stockPopup/whatif]', e.message); }
+  } catch(e) {}
 
-  // FALLBACK: /api/analyze type:'kpi' if whatif fails
+  // Fallback to Grok/Gemini via /api/whatif
   if (!aiResult) {
     try {
-      const r = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'kpi', kpiId: 'oil',
-          kpiLabel: 'Investor outlook for ' + countryName,
-          kpiValue: brent.toFixed(0) + '/bbl',
-          scenario, oilPrice: brent,
-        }),
+      const r = await fetch('/api/whatif', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ query:prompt, scenario, oilPrice:brent }),
       });
-      if (r.ok) {
-        const d = await r.json();
-        const raw = (d.narrative || '').trim();
-        if (raw && raw.length > 30) aiResult = raw;
-      }
-    } catch(e) { console.warn('[stockPopup/analyze]', e.message); }
+      const d = await r.json();
+      if (r.ok) aiResult = (d.analysis || d.narrative || '').trim();
+    } catch(e) {}
   }
 
   // Parse AI JSON
@@ -2955,148 +2883,6 @@ function escHtml(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-
-/* ═══════════════════════════════════════════════════════════════
-   LIVE NEWS FEED
-   Fetches RSS feeds via rss2json.com → populates the alert panel
-   dynamically. After loading, calls /api/analyze type:'newssummary'
-   to generate an AI Bloomberg-style alert from the hottest headlines.
-   Runs on page load, then every 20 minutes.
-═══════════════════════════════════════════════════════════════ */
-const RSS2JSON  = 'https://api.rss2json.com/v1/api.json?rss_url=';
-const RSS_FEEDS = [
-  { name:'Reuters',     url:'https://feeds.reuters.com/reuters/topNews' },
-  { name:'BBC World',   url:'https://feeds.bbci.co.uk/news/world/rss.xml' },
-  { name:'Al Jazeera',  url:'https://www.aljazeera.com/xml/rss/all.xml' },
-  { name:'Reuters Biz', url:'https://feeds.reuters.com/reuters/businessNews' },
-];
-const NEWS_CATEGORIES = [
-  { id:'energy',   label:'ENERGY',   icon:'⚡', color:'var(--amber)',
-    keywords:['oil','brent','opec','gas','energy','crude','hormuz','fuel','refinery'] },
-  { id:'conflict', label:'CONFLICT', icon:'⚠',  color:'var(--red)',
-    keywords:['war','conflict','attack','missile','sanction','military','iran','strike','nuclear'] },
-  { id:'markets',  label:'MARKETS',  icon:'📈', color:'var(--cyan)',
-    keywords:['inflation','fed','rate','dollar','market','stock','economy','gdp','recession'] },
-  { id:'food',     label:'FOOD',     icon:'🌾', color:'var(--green)',
-    keywords:['food','wheat','grain','famine','price','agricultural','crop'] },
-];
-
-let liveArticles   = [];
-let liveAlertTimer = null;
-let liveAlertIdx   = 0;
-
-function categoriseArticle(title, desc) {
-  const text = (title + ' ' + desc).toLowerCase();
-  for (const cat of NEWS_CATEGORIES) {
-    if (cat.keywords.some(k => text.includes(k))) return cat;
-  }
-  return { id:'global', label:'GLOBAL', icon:'🌐', color:'var(--text-dim)' };
-}
-
-function stripHtml(s) {
-  return (s || '').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim();
-}
-
-async function fetchLiveNews() {
-  const all = [];
-  const results = await Promise.allSettled(
-    RSS_FEEDS.map(feed =>
-      fetch(RSS2JSON + encodeURIComponent(feed.url) + '&count=15')
-        .then(r => r.ok ? r.json() : null)
-        .then(data => ({ feed, items: data?.items || [] }))
-        .catch(() => ({ feed, items: [] }))
-    )
-  );
-  const SKIP = ['football','soccer','cricket','celebrity','nfl','nba','grammy','oscar'];
-  results.forEach(r => {
-    if (r.status !== 'fulfilled') return;
-    const { feed, items } = r.value;
-    items.forEach(item => {
-      const t = item.title || '';
-      const d = stripHtml(item.description || '');
-      if (SKIP.some(w => (t+d).toLowerCase().includes(w))) return;
-      const cat = categoriseArticle(t, d);
-      all.push({
-        title:    t,
-        snippet:  d.slice(0, 140),
-        link:     item.link || '#',
-        source:   feed.name,
-        pub:      item.pubDate || '',
-        cat,
-      });
-    });
-  });
-
-  // Sort by date desc, deduplicate
-  all.sort((a, b) => new Date(b.pub) - new Date(a.pub));
-  const seen = new Set();
-  liveArticles = all.filter(a => {
-    const k = a.title.slice(0, 40).toLowerCase();
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  }).slice(0, 25);
-
-  if (!liveArticles.length) return; // keep static fallback
-
-  // Render into the alert panel
-  renderLiveAlerts();
-
-  // Generate AI summary from hottest headlines
-  generateAIAlert(liveArticles);
-}
-
-function renderLiveAlerts() {
-  const list = document.querySelector('.alert-list');
-  if (!list || !liveArticles.length) return;
-  list.innerHTML = liveArticles.slice(0, 8).map((a, i) => `
-    <div class="alert-item ${a.cat.id === 'conflict' ? '' : a.cat.id === 'energy' ? 'warn' : 'info'}"
-         style="cursor:pointer" onclick="window.open('${a.link}','_blank')">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-        <strong style="color:${a.cat.color};font-size:7px;letter-spacing:.12em">${a.cat.icon} ${a.cat.label}</strong>
-        <span style="font-size:6px;color:var(--text-dim)">${a.source}</span>
-      </div>
-      <div style="font-size:8px;color:var(--text-mid);line-height:1.5">${a.title}</div>
-      ${a.snippet ? `<div style="font-size:7px;color:var(--text-dim);margin-top:2px;line-height:1.4">${a.snippet}…</div>` : ''}
-    </div>`).join('');
-}
-
-async function generateAIAlert(articles) {
-  if (!articles || !articles.length) return;
-  try {
-    const headlines = articles.slice(0, 10).map(a => a.title);
-    const brent = (tickerData.find(t => t.id === 'BRENT') || {}).price || 121;
-    const r = await fetch('/api/analyze', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type:      'newssummary',
-        headlines,
-        scenario,
-        oilPrice:  brent,
-      }),
-    });
-    if (!r.ok) return;
-    const d = await r.json();
-    const aiSummary = (d.summary || '').trim();
-    if (!aiSummary) return;
-
-    // Prepend AI-generated alert at the top of the panel
-    const list = document.querySelector('.alert-list');
-    if (!list) return;
-    const aiDiv = document.createElement('div');
-    aiDiv.className = 'alert-item';
-    aiDiv.style.cssText = 'border-left:3px solid var(--purple);background:rgba(208,170,255,.06)';
-    aiDiv.innerHTML = `
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
-        <span style="color:var(--purple);font-size:7px;font-weight:700;letter-spacing:.12em">🤖 AI INTEL</span>
-        <span style="font-size:6px;color:var(--text-dim)">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} UTC</span>
-      </div>
-      <div style="font-size:8px;color:var(--text-mid);line-height:1.5">${aiSummary}</div>`;
-    list.insertBefore(aiDiv, list.firstChild);
-  } catch(e) { /* non-fatal */ }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   // Init ticker
   updateTicker();
@@ -3142,10 +2928,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Finnhub live equity prices — fetch on load + every 30s
   setTimeout(fetchFinnhubTicker, 3000);
   setInterval(fetchFinnhubTicker, 30000);
-
-  // Live RSS news — load after 3s (let globe render first), refresh every 20min
-  setTimeout(fetchLiveNews, 3000);
-  setInterval(fetchLiveNews, 20 * 60 * 1000);
 });
 
 /* Fetch live market data from Vercel proxy endpoints */
